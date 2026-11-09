@@ -117,6 +117,14 @@
                         android:layout_weight="1" android:layout_height="wrap_content"
                         android:layout_marginStart="8dp" android:text="删除所选 Vosk" />
                 </LinearLayout>
+                <Button android:id="@+id/btn_import_asr_folder"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="导入已解压 Vosk 文件夹（约 3.5 GB）" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp" android:layout_marginBottom="10dp"
+                    android:text="Large 官网 ZIP 下载约 1.84 GB；原仓库的 3.5 GB 是解压后文件夹大小。已解压的文件夹请用上方导入，不能当作 ZIP 文件导入。"
+                    android:textSize="12sp" android:textColor="#FF9297A0" />
 
                 <androidx.appcompat.widget.SwitchCompat android:id="@+id/switch_drift_retry"
                     android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="10dp"
