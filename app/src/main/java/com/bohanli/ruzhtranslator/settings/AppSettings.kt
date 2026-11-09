@@ -12,9 +12,20 @@ object AppSettings {
     private const val PREFS = "app_settings"
     private const val KEY_DRIFT_RETRY = "drift_retry_enabled"
     private const val KEY_ASR_MODEL   = "asr_model"
+    private const val KEY_TRANSLATION_ENGINE = "translation_engine"
+    private const val KEY_INFERENCE_BACKEND = "inference_backend"
+    private const val KEY_MODEL_SOURCE = "model_source"
 
     const val ASR_MODEL_SMALL = "vosk-model-small-ru-0.22"
     const val ASR_MODEL_LARGE = "vosk-model-ru-0.42"
+    const val ENGINE_GEMMA4 = "gemma4"
+    const val ENGINE_LMT = "lmt"
+    const val BACKEND_AUTO = "auto"
+    const val BACKEND_GPU = "gpu"
+    const val BACKEND_CPU = "cpu"
+    const val SOURCE_HF = "huggingface"
+    const val SOURCE_HF_MIRROR = "hf-mirror"
+    const val SOURCE_MODELSCOPE = "modelscope"
 
     @Volatile private var prefs: SharedPreferences? = null
 
