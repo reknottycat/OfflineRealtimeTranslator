@@ -17,9 +17,13 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.bohanli.ruzhtranslator.asr.RecasepuncProcessor
 import com.bohanli.ruzhtranslator.asr.VoskAsrManager
+import com.bohanli.ruzhtranslator.asr.AsrEngine
+import com.bohanli.ruzhtranslator.asr.GigaAmAsrManager
+import com.bohanli.ruzhtranslator.asr.GigaAmCatalog
 import com.bohanli.ruzhtranslator.core.AppStatus
 import com.bohanli.ruzhtranslator.core.ModelCatalog
 import com.bohanli.ruzhtranslator.core.ModelManager
+import com.bohanli.ruzhtranslator.core.ModelDownloader
 import com.bohanli.ruzhtranslator.databinding.ActivityMainBinding
 import com.bohanli.ruzhtranslator.history.AppDatabase
 import com.bohanli.ruzhtranslator.history.HistoryActivity
@@ -59,7 +63,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private val mainScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var modelsLoading: Job? = null
-    private var voskAsr: VoskAsrManager? = null
+    private var voskAsr: AsrEngine? = null
     private var recasepunc: RecasepuncProcessor? = null
     private var gemmaTranslator: GemmaTranslator? = null
     private var translationQueue: TranslationQueue? = null
@@ -142,6 +146,11 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, HistoryActivity::class.java).putExtra("tab", 1))
         }
         binding.btnSettings.setOnClickListener {
+            if (currentAsrModel == AppSettings.ASR_MODEL_GIGAAM &&
+                voskAsr?.hasPendingResults() == true) {
+                updateStatus(AppStatus.Loading("正在完成最后一段俄语识别，请稍后进入设置"))
+                return@setOnClickListener
+            }
             // No active recorder, queue or translator may keep running while model files are managed.
             if (lastPartial.isNotBlank()) {
                 appendRussianSegment(lastPartial)
@@ -239,7 +248,7 @@ class MainActivity : AppCompatActivity() {
         val translator = GemmaTranslator(currentTranslationEngine, currentInferenceBackend)
         gemmaTranslator = translator
         modelsLoading = mainScope.launch {
-            var startupAsr: VoskAsrManager? = null
+            var startupAsr: AsrEngine? = null
             var startupPunctuation: RecasepuncProcessor? = null
             var complete = false
             try {
@@ -251,11 +260,23 @@ class MainActivity : AppCompatActivity() {
                 }
                 val initialized = coroutineScope {
                     val asr = async(Dispatchers.IO) {
-                        val dir = ModelManager.getModelDir(this@MainActivity, currentAsrModel)
-                            ?: error("Vosk 俄语模型尚未安装（$currentAsrModel）。请进入设置 → 语音识别模型，选择 Small/Large 并点击下载；也可放至：" +
-                                "${ModelManager.getExternalModelDir(this@MainActivity)}/$currentAsrModel/")
-                        val instance = VoskAsrManager(dir.absolutePath,
-                            { onVoskPartial(it) }, { onVoskFinal(it) }, { updateStatus(AppStatus.Error(it)) })
+                        val instance: AsrEngine = if (currentAsrModel == AppSettings.ASR_MODEL_GIGAAM) {
+                            val dir = ModelManager.getModelDir(this@MainActivity, GigaAmCatalog.MODEL_ID)
+                                ?: error("GigaAM v2 俄语模型未安装，请在设置中点选第三套 ASR 模型并下载")
+                            check(ModelDownloader(this@MainActivity, GigaAmCatalog.SPEC).installed()) {
+                                "GigaAM v2 模型未通过 SHA-256 身份验证，请重新下载或导入官方 ONNX 文件"
+                            }
+                            GigaAmAsrManager(this@MainActivity, dir,
+                                { onVoskPartial(it) }, { onVoskFinal(it) },
+                                { updateStatus(AppStatus.Error(it)) },
+                                { refreshStoppedState() })
+                        } else {
+                            val dir = ModelManager.getModelDir(this@MainActivity, currentAsrModel)
+                                ?: error("Vosk 俄语模型未安装（$currentAsrModel），请在设置中选择 Small/Large 并下载")
+                            VoskAsrManager(dir.absolutePath,
+                                { onVoskPartial(it) }, { onVoskFinal(it) },
+                                { updateStatus(AppStatus.Error(it)) })
+                        }
                         startupAsr = instance
                         instance.initialize()
                         progress()
@@ -355,7 +376,8 @@ class MainActivity : AppCompatActivity() {
         if (settingsOpened || gemmaTranslator?.isAvailable() != true) return
         val asr = voskAsr ?: run { updateStatus(AppStatus.Error("语音识别引擎未就绪")); return }
         // Starting a new recording must not discard translations still finishing.
-        if (pendingAsrResults > 0 || translationQueue?.hasPending() == true) {
+        if (pendingAsrResults > 0 || translationQueue?.hasPending() == true ||
+            voskAsr?.hasPendingResults() == true) {
             updateStatus(AppStatus.Loading("请等待上一段翻译完成，字幕正自动保存"))
             return
         }
@@ -374,9 +396,13 @@ class MainActivity : AppCompatActivity() {
         isListening = false; isPaused = false
         voskAsr?.stopListening()
         translationQueue?.resume()
-        if (lastPartial.isNotBlank()) {
+        if (lastPartial.isNotBlank() && currentAsrModel != AppSettings.ASR_MODEL_GIGAAM) {
             val text = lastPartial; lastPartial = ""
             appendRussianSegment(text); translationQueue?.submit(text)
+        } else if (currentAsrModel == AppSettings.ASR_MODEL_GIGAAM) {
+            // Offline GigaAM may still be decoding a *final* utterance after Stop.
+            // Never persist speculative partial text as a second completed sentence.
+            lastPartial = ""
         }
         updateRussianDisplay()
         saveSubtitleSnapshot()
@@ -388,9 +414,12 @@ class MainActivity : AppCompatActivity() {
     private fun pauseListening() {
         isPaused = true
         voskAsr?.stopListening()
-        if (lastPartial.isNotBlank()) {
+        if (lastPartial.isNotBlank() && currentAsrModel != AppSettings.ASR_MODEL_GIGAAM) {
             val text = lastPartial; lastPartial = ""
             appendRussianSegment(text); translationQueue?.submit(text)
+            updateRussianDisplay()
+        } else if (currentAsrModel == AppSettings.ASR_MODEL_GIGAAM) {
+            lastPartial = ""
             updateRussianDisplay()
         }
         saveSubtitleSnapshot()
@@ -401,6 +430,11 @@ class MainActivity : AppCompatActivity() {
     }
     private fun resumeFromPause() {
         if (gemmaTranslator?.isAvailable() != true) return
+        if (currentAsrModel == AppSettings.ASR_MODEL_GIGAAM &&
+            voskAsr?.hasPendingResults() == true) {
+            updateStatus(AppStatus.Loading("正在保存暂停前最后一句俄语，完成后再继续"))
+            return
+        }
         isPaused = false
         translationQueue?.resume()
         voskAsr?.startListening()
@@ -445,7 +479,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun refreshStoppedState() {
         if (settingsOpened || isListening || isPaused || isDestroyed) return
-        val pending = pendingAsrResults > 0 || translationQueue?.hasPending() == true
+        val pending = pendingAsrResults > 0 || translationQueue?.hasPending() == true ||
+            voskAsr?.hasPendingResults() == true
         val ready = !pending && gemmaTranslator?.isAvailable() == true
         binding.btnStartStop.isEnabled = ready
         binding.btnStartStop.alpha = if (ready) 0.75f else 0.4f

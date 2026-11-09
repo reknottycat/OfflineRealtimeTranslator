@@ -16,6 +16,7 @@ object AppSettings {
     private const val KEY_SOURCE_POLICY_VERSION = "model_source_policy_version"
     const val ASR_MODEL_SMALL = "vosk-model-small-ru-0.22"
     const val ASR_MODEL_LARGE = "vosk-model-ru-0.42"
+    const val ASR_MODEL_GIGAAM = "sherpa-gigaam-v2-ru"
     const val ENGINE_GEMMA4 = "gemma4"
     const val ENGINE_LMT = "lmt"
     const val ENGINE_HYMT2 = "hy-mt2"

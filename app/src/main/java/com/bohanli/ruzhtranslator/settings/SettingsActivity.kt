@@ -13,6 +13,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.AppCompatRadioButton
 import com.bohanli.ruzhtranslator.R
 import com.bohanli.ruzhtranslator.asr.VoskModelCatalog
+import com.bohanli.ruzhtranslator.asr.GigaAmCatalog
 import com.bohanli.ruzhtranslator.asr.VoskArchiveInstaller
 import com.bohanli.ruzhtranslator.core.ModelManager
 import com.bohanli.ruzhtranslator.core.ModelCatalog
@@ -53,8 +54,16 @@ class SettingsActivity : AppCompatActivity() {
     }
     private val importAsrArchive = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) {
-            val installer = VoskArchiveInstaller(this, VoskModelCatalog.model(pendingImportAsr))
-            startAsrOperation { installer.importZip(uri, ::showAsrProgress) }
+            if (pendingImportAsr == AppSettings.ASR_MODEL_GIGAAM) {
+                startAsrOperation {
+                    ModelDownloader(this, GigaAmCatalog.SPEC).importFrom(uri) { p ->
+                        showAsrProgress(VoskArchiveInstaller.Progress(p.received, p.expected, p.stage))
+                    }
+                }
+            } else {
+                val installer = VoskArchiveInstaller(this, VoskModelCatalog.model(pendingImportAsr))
+                startAsrOperation { installer.importZip(uri, ::showAsrProgress) }
+            }
         }
     }
     private val importAsrFolder = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
@@ -84,18 +93,25 @@ class SettingsActivity : AppCompatActivity() {
         binding.radioTranslationEngine.addView(hyMtButton,
             RadioGroup.LayoutParams(RadioGroup.LayoutParams.MATCH_PARENT, RadioGroup.LayoutParams.WRAP_CONTENT))
         binding.btnBack.setOnClickListener { finish() }
-        binding.tvVersion.text = "v3.9-alpha · 原版并行安装 · Vosk ZIP/已解压文件夹 · 翻译三引擎"
-        binding.radioAsrModel.check(if (AppSettings.asrModel == AppSettings.ASR_MODEL_LARGE)
-            binding.rbAsrLarge.id else binding.rbAsrSmall.id)
+        binding.tvVersion.text = "v4.0-alpha · Vosk / GigaAM v2 俄语识别 · 三翻译引擎"
+        binding.radioAsrModel.check(when (AppSettings.asrModel) {
+            AppSettings.ASR_MODEL_GIGAAM -> binding.rbAsrGigaam.id
+            AppSettings.ASR_MODEL_LARGE -> binding.rbAsrLarge.id
+            else -> binding.rbAsrSmall.id
+        })
         binding.radioAsrModel.setOnCheckedChangeListener { _, id ->
             if (busy) return@setOnCheckedChangeListener
             customUrls.edit().putString("vosk:" + renderedAsr, binding.etAsrUrl.text.toString()).apply()
-            AppSettings.asrModel = if (id == binding.rbAsrLarge.id) AppSettings.ASR_MODEL_LARGE else AppSettings.ASR_MODEL_SMALL
+            AppSettings.asrModel = when (id) {
+                binding.rbAsrGigaam.id -> AppSettings.ASR_MODEL_GIGAAM
+                binding.rbAsrLarge.id -> AppSettings.ASR_MODEL_LARGE
+                else -> AppSettings.ASR_MODEL_SMALL
+            }
             refreshAsrUi()
         }
         binding.spinnerAsrSource.adapter = ArrayAdapter(this, R.layout.spinner_item,
-            arrayOf("自动 · 国内 HF Mirror 优先（Small）", "国内镜像优先（Large 暂无核验镜像）",
-                "Vosk 官方下载", "自定义 HTTPS ZIP 直链"))
+            arrayOf("自动 · 国内 HF Mirror 优先（Small/GigaAM）", "国内镜像优先（Large 只使用官方）",
+                "模型官方源优先", "自定义 HTTPS ZIP / ONNX 直链"))
             .also { it.setDropDownViewResource(R.layout.spinner_dropdown_item) }
         binding.spinnerAsrSource.setSelection(asrSourceKeys.indexOf(AppSettings.asrSource).coerceAtLeast(0))
         binding.spinnerAsrSource.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
@@ -106,6 +122,21 @@ class SettingsActivity : AppCompatActivity() {
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
         binding.btnDownloadAsr.setOnClickListener {
+            if (AppSettings.asrModel == AppSettings.ASR_MODEL_GIGAAM) {
+                val url = binding.etAsrUrl.text.toString()
+                val urls = try { GigaAmCatalog.urls(AppSettings.asrSource, url) }
+                    catch (e: IllegalArgumentException) {
+                        toast(e.message ?: "请检查 GigaAM 下载源")
+                        return@setOnClickListener
+                    }
+                customUrls.edit().putString("vosk:" + GigaAmCatalog.MODEL_ID, url).apply()
+                startAsrOperation(isDownload = true) {
+                    ModelDownloader(this, GigaAmCatalog.SPEC).download(urls) { p ->
+                        showAsrProgress(VoskArchiveInstaller.Progress(p.received, p.expected, p.stage))
+                    }
+                }
+                return@setOnClickListener
+            }
             val spec = VoskModelCatalog.model(AppSettings.asrModel)
             val url = binding.etAsrUrl.text.toString()
             val urls = try { VoskModelCatalog.urls(spec, AppSettings.asrSource, url) }
@@ -135,6 +166,15 @@ class SettingsActivity : AppCompatActivity() {
             importAsrFolder.launch(null)
         }
         binding.btnRemoveAsr.setOnClickListener {
+            if (AppSettings.asrModel == AppSettings.ASR_MODEL_GIGAAM) {
+                AlertDialog.Builder(this).setTitle("删除 GigaAM v2 模型？")
+                    .setMessage("只删除本应用 GigaAM 的 ONNX 权重，不影响 Vosk 及翻译历史。")
+                    .setNegativeButton("取消", null)
+                    .setPositiveButton("删除") { _, _ ->
+                        startAsrOperation { ModelDownloader(this, GigaAmCatalog.SPEC).deleteModel() }
+                    }.show()
+                return@setOnClickListener
+            }
             val spec = VoskModelCatalog.model(AppSettings.asrModel)
             AlertDialog.Builder(this).setTitle("删除 " + spec.title + "？")
                 .setMessage("仅删除应用内下载的该 Vosk 模型和断点，不删除外部手动导入目录或翻译历史。")
@@ -215,13 +255,30 @@ class SettingsActivity : AppCompatActivity() {
     private fun refreshAsrSource() {
         val custom = AppSettings.asrSource == VoskModelCatalog.SOURCE_CUSTOM
         binding.etAsrUrl.visibility = if (custom) View.VISIBLE else View.GONE
+        val giga = AppSettings.asrModel == AppSettings.ASR_MODEL_GIGAAM
         val large = AppSettings.asrModel == AppSettings.ASR_MODEL_LARGE
-        binding.tvAsrHint.text = if (large)
+        binding.tvAsrHint.text = if (giga)
+            "第三方 sherpa-onnx + GigaAM v2 俄语 CTC INT8，下载 ONNX 236 MB，使用 HF Mirror 优先，完成后验证固定 SHA-256；本机 CPU 做离线分段识别。模型独立于 Vosk，不需要 Vosk ZIP。ModelScope 尚无核验的同一文件。"
+        else if (large)
             "Large 官方 ZIP 1,837,429,010 字节（约 1.84 GB）；原仓库说的 3.5 GB 是解压后模型目录，不是下载大小。已下载 ZIP 可用「导入 ZIP」，已解压目录请用「导入文件夹」。不支持 Android 手机流畅加载的保证；模型来源优先官方下载，无已核验的 ModelScope ZIP。"
         else "Small 已核验 HF Mirror 对应的 HF 文件及 SHA-256；自动模式优先国内 HF Mirror，失败切换官方来源。支持暂停、续传、ZIP CRC 与结构校验。"
     }
     private fun refreshAsrUi() {
+        if (AppSettings.asrModel == AppSettings.ASR_MODEL_GIGAAM) {
+            renderedAsr = GigaAmCatalog.MODEL_ID
+            binding.etAsrUrl.setText(customUrls.getString("vosk:" + renderedAsr, ""))
+            binding.btnImportAsr.text = "导入 GigaAM ONNX"
+            binding.btnImportAsrFolder.visibility = View.GONE
+            binding.btnDownloadAsr.text = "下载 / 继续下载 GigaAM v2 俄语 INT8（236 MB）"
+            refreshAsrSource()
+            binding.tvAsrStatus.text = if (ModelDownloader(this, GigaAmCatalog.SPEC).installed())
+                "ONNX 已核验安装 · 返回主页将启动 sherpa-onnx CPU 语音识别"
+            else "尚未安装 · 下载 236 MB ONNX，独立运行时，非 Vosk 模型"
+            return
+        }
         val spec = VoskModelCatalog.model(AppSettings.asrModel)
+        binding.btnImportAsr.text = "导入 Vosk ZIP"
+        binding.btnImportAsrFolder.visibility = View.VISIBLE
         renderedAsr = spec.id
         binding.etAsrUrl.setText(customUrls.getString("vosk:" + spec.id, ""))
         refreshAsrSource()
@@ -246,7 +303,7 @@ class SettingsActivity : AppCompatActivity() {
                     "已暂停 · 断点已保存，下次点击继续下载"
                 throw e
             }
-            catch (e: Exception) { binding.tvAsrStatus.text = "Vosk 操作失败：" + e.message }
+            catch (e: Exception) { binding.tvAsrStatus.text = "语音模型操作失败：" + e.message }
             finally { asrDownloading = false; setBusy(false) }
         }
     }
@@ -328,7 +385,7 @@ class SettingsActivity : AppCompatActivity() {
         busy = value
         listOf(binding.btnDownloadModel, binding.btnImportModel, binding.btnRemoveModel,
             binding.spinnerModelSource, binding.etModelUrl, binding.rbGemma4, binding.rbLmt, hyMtButton,
-            binding.rbAsrSmall, binding.rbAsrLarge, binding.spinnerAsrSource,
+            binding.rbAsrSmall, binding.rbAsrLarge, binding.rbAsrGigaam, binding.spinnerAsrSource,
             binding.etAsrUrl, binding.btnDownloadAsr, binding.btnImportAsr,
             binding.btnImportAsrFolder, binding.btnRemoveAsr
             ).forEach { it.isEnabled = !value }
