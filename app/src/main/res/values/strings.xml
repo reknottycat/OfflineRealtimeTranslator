@@ -64,9 +64,9 @@
 
     <!-- Settings: ASR model selection -->
     <string name="asr_model_title">语音识别模型</string>
-    <string name="asr_model_desc">切换 Vosk 模型。回主界面后自动生效。</string>
-    <string name="asr_model_small">Vosk Small — 87 MB，快速</string>
-    <string name="asr_model_large">Vosk Large — 3.5 GB，更精准</string>
+    <string name="asr_model_desc">选择并下载俄语 Small 或 Large；已安装模型返回主界面后自动切换。</string>
+    <string name="asr_model_small">Vosk Small 0.22 — 约 45 MB 下载，手机推荐</string>
+    <string name="asr_model_large">Vosk Large 0.42 — 约 1.8 GB 下载，服务器级内存需求（慎选）</string>
     <string name="asr_changed_toast">ASR 模型已切换，返回主界面自动加载</string>
 
     <!-- Settings: output-language drift mitigation -->
