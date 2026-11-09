@@ -4,8 +4,35 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#FF121212"
+    android:background="#FF101214"
     tools:context=".MainActivity">
+
+    <!-- Restrained, conversation-first toolbar. No changes to recognition or queue IDs. -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="58dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="18dp"
+        android:background="#FF151719">
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="离线同声传译" android:textSize="19sp"
+                android:textStyle="bold" android:textColor="#FFF7F7F8"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="语音识别与翻译均在设备本地运行"
+                android:textSize="11sp" android:textColor="#FF9299A1"/>
+        </LinearLayout>
+        <TextView
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:paddingHorizontal="10dp" android:paddingVertical="6dp"
+            android:text="RU  →  ZH" android:textSize="12sp"
+            android:textColor="#FF98D8C5" android:background="@drawable/bg_settings_card"/>
+    </LinearLayout>
 
     <!-- Status bar -->
     <TextView
@@ -16,9 +43,9 @@
         android:paddingVertical="6dp"
         android:textSize="12sp"
         android:textColor="#FFAAAAAA"
-        android:background="#FF1E1E1E"
+        android:background="#FF151719"
         android:text="@string/status_loading"
-        android:fontFamily="monospace"
+        android:fontFamily="sans"
         android:maxLines="2" />
 
     <!-- Russian ASR area (top half) -->
@@ -36,14 +63,14 @@
                 android:id="@+id/tv_russian_history"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:padding="10dp"
+                android:padding="18dp"
                 android:paddingBottom="32dp"
                 android:textSize="17sp"
-                android:textColor="#FFDDEEFF"
-                android:background="#FF1A2030"
+                android:textColor="#FFF0F1F2"
+                android:background="@drawable/bg_chat_user"
                 android:gravity="top"
                 android:hint="@string/hint_russian"
-                android:textColorHint="#FF446688"
+                android:textColorHint="#FF9BA0A7"
                 tools:text="Привет мир" />
         </ScrollView>
 
@@ -70,7 +97,8 @@
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:paddingHorizontal="10dp"
-        android:paddingVertical="2dp">
+        android:paddingVertical="10dp"
+        android:background="#FF181B1F">
 
         <!-- Favorites star icon -->
         <ImageButton
@@ -154,14 +182,14 @@
                 android:id="@+id/tv_chinese_history"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:padding="10dp"
+                android:padding="18dp"
                 android:paddingBottom="32dp"
                 android:textSize="17sp"
-                android:textColor="#FFFFEECC"
-                android:background="#FF201A10"
+                android:textColor="#FFF0F6F3"
+                android:background="@drawable/bg_chat_assistant"
                 android:gravity="top"
                 android:hint="@string/hint_chinese"
-                android:textColorHint="#FF886633"
+                android:textColorHint="#FF93A49E"
                 tools:text="你好世界" />
         </ScrollView>
 
