@@ -57,6 +57,14 @@ class SettingsActivity : AppCompatActivity() {
             startAsrOperation { installer.importZip(uri, ::showAsrProgress) }
         }
     }
+    private val importAsrFolder = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
+        if (uri != null) {
+            val selected = VoskModelCatalog.model(pendingImportAsr)
+            startAsrOperation {
+                VoskArchiveInstaller(this, selected).importDirectory(uri, ::showAsrProgress)
+            }
+        }
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AppSettings.init(this)
@@ -76,7 +84,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.radioTranslationEngine.addView(hyMtButton,
             RadioGroup.LayoutParams(RadioGroup.LayoutParams.MATCH_PARENT, RadioGroup.LayoutParams.WRAP_CONTENT))
         binding.btnBack.setOnClickListener { finish() }
-        binding.tvVersion.text = "v3.7-alpha · Vosk Small/Large 下载 · Gemma 4 / LMT / HY-MT2"
+        binding.tvVersion.text = "v3.9-alpha · 原版并行安装 · Vosk ZIP/已解压文件夹 · 翻译三引擎"
         binding.radioAsrModel.check(if (AppSettings.asrModel == AppSettings.ASR_MODEL_LARGE)
             binding.rbAsrLarge.id else binding.rbAsrSmall.id)
         binding.radioAsrModel.setOnCheckedChangeListener { _, id ->
@@ -103,14 +111,28 @@ class SettingsActivity : AppCompatActivity() {
             val urls = try { VoskModelCatalog.urls(spec, AppSettings.asrSource, url) }
                 catch (e: IllegalArgumentException) { toast(e.message ?: "请检查 Vosk 下载源"); return@setOnClickListener }
             customUrls.edit().putString("vosk:" + spec.id, url).apply()
-            startAsrOperation(isDownload = true) {
-                VoskArchiveInstaller(this, spec).download(urls, ::showAsrProgress)
+            val beginDownload = {
+                startAsrOperation(isDownload = true) {
+                    VoskArchiveInstaller(this, spec).download(urls, ::showAsrProgress)
+                }
             }
+            if (spec.isLarge) {
+                AlertDialog.Builder(this)
+                    .setTitle("确认下载服务器级 Vosk Large？")
+                    .setMessage("官方压缩包约 1.84 GB，解压后约 3.5–3.7 GB；运行时可能需要高达 16 GB 内存。手机可能卡顿或加载失败。")
+                    .setNegativeButton("取消", null)
+                    .setPositiveButton("下载官方 ZIP") { _, _ -> beginDownload() }
+                    .show()
+            } else beginDownload()
         }
         binding.btnPauseAsr.setOnClickListener { operationJob?.cancel() }
         binding.btnImportAsr.setOnClickListener {
             pendingImportAsr = AppSettings.asrModel
             importAsrArchive.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
+        }
+        binding.btnImportAsrFolder.setOnClickListener {
+            pendingImportAsr = AppSettings.asrModel
+            importAsrFolder.launch(null)
         }
         binding.btnRemoveAsr.setOnClickListener {
             val spec = VoskModelCatalog.model(AppSettings.asrModel)
@@ -195,7 +217,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.etAsrUrl.visibility = if (custom) View.VISIBLE else View.GONE
         val large = AppSettings.asrModel == AppSettings.ASR_MODEL_LARGE
         binding.tvAsrHint.text = if (large)
-            "Large 官方 ZIP 约 1.84 GB，解压后约 3.7 GB；Vosk 官方提示可能占用高达 16 GB 内存，不推荐手机实时使用。暂未核验 ModelScope 同文件镜像；使用官方 HTTPS 或自填直链。Large 没有已确认的发布方 SHA-256，使用 ZIP CRC、文件大小及模型结构校验。"
+            "Large 官方 ZIP 1,837,429,010 字节（约 1.84 GB）；原仓库说的 3.5 GB 是解压后模型目录，不是下载大小。已下载 ZIP 可用「导入 ZIP」，已解压目录请用「导入文件夹」。不支持 Android 手机流畅加载的保证；模型来源优先官方下载，无已核验的 ModelScope ZIP。"
         else "Small 已核验 HF Mirror 对应的 HF 文件及 SHA-256；自动模式优先国内 HF Mirror，失败切换官方来源。支持暂停、续传、ZIP CRC 与结构校验。"
     }
     private fun refreshAsrUi() {
@@ -307,7 +329,8 @@ class SettingsActivity : AppCompatActivity() {
         listOf(binding.btnDownloadModel, binding.btnImportModel, binding.btnRemoveModel,
             binding.spinnerModelSource, binding.etModelUrl, binding.rbGemma4, binding.rbLmt, hyMtButton,
             binding.rbAsrSmall, binding.rbAsrLarge, binding.spinnerAsrSource,
-            binding.etAsrUrl, binding.btnDownloadAsr, binding.btnImportAsr, binding.btnRemoveAsr
+            binding.etAsrUrl, binding.btnDownloadAsr, binding.btnImportAsr,
+            binding.btnImportAsrFolder, binding.btnRemoveAsr
             ).forEach { it.isEnabled = !value }
         val canChooseDevice = !value && AppSettings.translationEngine == AppSettings.ENGINE_GEMMA4
         listOf(binding.rbBackendCpu, binding.rbBackendAuto, binding.rbBackendGpu).forEach { it.isEnabled = canChooseDevice }
