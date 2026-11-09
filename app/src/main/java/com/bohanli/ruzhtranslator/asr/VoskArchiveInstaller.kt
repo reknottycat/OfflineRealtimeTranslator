@@ -176,9 +176,17 @@ class VoskArchiveInstaller(
         try {
             val status = conn.responseCode
             check(conn.url.protocol.equals("https", true)) { "下载被重定向到非 HTTPS 地址" }
-            check(status == 200 || status == 206) { "HTTP " + status }
+            check(status == 200 || status == 206) {
+                "Vosk ZIP 下载源 " + conn.url.host + " 返回 HTTP " + status
+            }
+            val type = conn.contentType.orEmpty().lowercase(Locale.ROOT)
+            check(!type.contains("text/html") && !type.contains("application/json") &&
+                !type.contains("text/plain")) {
+                "下载源 " + conn.url.host + " 返回网页或错误信息（" + type +
+                    "），不是 Vosk ZIP，请切换官方源"
+            }
             check(conn.contentEncoding == null || conn.contentEncoding.equals("identity", true)) {
-                "下载源意外压缩了传输数据"
+                "下载源压缩了传输数据，无法保证断点文件一致"
             }
             val range = conn.getHeaderField("Content-Range")
             val append = status == 206
@@ -191,7 +199,9 @@ class VoskArchiveInstaller(
                 val remoteSize = m.groupValues[3].toLong()
                 check(remoteSize == spec.archiveBytes && rangeStart == offset &&
                     rangeEnd >= rangeStart && rangeEnd < spec.archiveBytes) {
-                    "分块范围不匹配，拒绝写入断点"
+                    "Range/ZIP 总大小不匹配：下载源声称 " + remoteSize +
+                        " 字节，官方 " + spec.id + " ZIP 应为 " + spec.archiveBytes +
+                        " 字节。约 3.5 GB 是解压大小，不是下载 ZIP 大小"
                 }
                 announcedBytes = rangeEnd - rangeStart + 1
             } else {
@@ -199,7 +209,12 @@ class VoskArchiveInstaller(
                 announcedBytes = spec.archiveBytes
             }
             if (conn.contentLengthLong >= 0) {
-                check(conn.contentLengthLong == announcedBytes) { "下载文件大小与记录不一致" }
+                check(conn.contentLengthLong == announcedBytes) {
+                    "ZIP 文件不匹配：" + conn.url.host + " 返回 " + conn.contentLengthLong +
+                        " 字节，本次请求应为 " + announcedBytes +
+                        " 字节（官方 ZIP 总大小 " + spec.archiveBytes +
+                        " 字节）。请切换官方源，勿使用网页/错误文件"
+                }
             }
             conn.inputStream.use { input ->
                 FileOutputStream(partial, append).use { output ->
@@ -224,7 +239,10 @@ class VoskArchiveInstaller(
                     check(responseCount == announcedBytes) { "网络提前中断，可继续下载" }
                 }
             }
-            check(partial.length() == spec.archiveBytes) { "文件尚未完整，可继续下载" }
+            check(partial.length() == spec.archiveBytes) {
+                "ZIP 下载未完成：已保存 " + partial.length() + "/" + spec.archiveBytes +
+                    " 字节，可继续下载。3.5–3.7 GB 指解压后目录大小"
+            }
         } finally { conn.disconnect() }
     }
 
@@ -328,6 +346,7 @@ class VoskArchiveInstaller(
             }
             previous.deleteRecursively()
             archive.delete()
+            partialOrigin.delete()
             AppSettings.notifyModelsChanged()
             report(Progress(spec.archiveBytes, spec.archiveBytes, "已安装 · 返回主页自动切换"))
         } finally {
