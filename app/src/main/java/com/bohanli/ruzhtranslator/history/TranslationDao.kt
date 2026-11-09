@@ -14,6 +14,10 @@ interface TranslationDao {
     @Update
     suspend fun update(record: TranslationRecord)
 
+    /** Update only subtitle text: preserve user favorites, name and history visibility. */
+    @Query("UPDATE translation_records SET ruText = :ruText, zhText = :zhText WHERE id = :id")
+    suspend fun updateSubtitleText(id: Int, ruText: String, zhText: String)
+
     // ---- History queries (isHistory = 1) ----
 
     @Query("SELECT * FROM translation_records WHERE isHistory = 1 ORDER BY createTime DESC")
