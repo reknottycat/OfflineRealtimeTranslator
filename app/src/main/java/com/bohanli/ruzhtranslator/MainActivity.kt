@@ -223,11 +223,14 @@ class MainActivity : AppCompatActivity() {
             false // keep native scrolling, text selection, and accessibility
         }
         scrollView.setOnScrollChangeListener { v, _, y, _, previousY ->
-            if (!userDragging || y == previousY) return@setOnScrollChangeListener
             val sv = v as ScrollView
             val child = sv.getChildAt(0) ?: return@setOnScrollChangeListener
-            val atBottom = y + sv.height >= child.height - (20 * resources.displayMetrics.density)
-            changeFollow(atBottom)
+            val nextFollow = LiveFollowPolicy.nextState(
+                userDragging = userDragging, currentY = y, previousY = previousY,
+                viewportHeight = sv.height, contentHeight = child.height,
+                bottomSlack = (20 * resources.displayMetrics.density).toInt()
+            )
+            if (nextFollow != null) changeFollow(nextFollow)
         }
     }
 
