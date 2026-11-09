@@ -1,0 +1,29 @@
+{
+  "unit_tests": {
+    "tests": 53,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "lint_errors": 0,
+  "lint_warnings": 125,
+  "translation_engines": [
+    "Gemma 4 E2B / LiteRT-LM",
+    "LMT / GGUF profile 0",
+    "HY-MT2 / GGUF profile 1"
+  ],
+  "native_libraries_present": [
+    "lib/arm64-v8a/liblmt_translator.so",
+    "lib/arm64-v8a/liblitertlm_jni.so"
+  ],
+  "gguf_profiles_share_native_library": true,
+  "weights_bundled": false,
+  "download_policy": "China-first; 4 MiB chunks; bounded failover; final SHA-256",
+  "china_phone_network_verified": false,
+  "phone_inference_verified": false,
+  "broad_translation_quality_accepted": false,
+  "apk_bytes": 74663603,
+  "pr_head_sha": "ad3ac4f1094bf3b8185c2577bdbfb6bce0a26658",
+  "tested_merge_sha": "ad3ac4f1094bf3b8185c2577bdbfb6bce0a26658",
+  "workflow_run_id": "42643758721"
+}
