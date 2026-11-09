@@ -1,0 +1,53 @@
+name: Publish Vosk v3.7 preview APK to direct GitHub branch
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-vosk-v3.7.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/vosk-asr-model-download-v3-7
+          submodules: recursive
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK / NDK / CMake
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKMGR="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | head -n 1)"
+          test -x "$SDKMGR"
+          "$SDKMGR" --install "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358" "cmake;3.22.1"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Test, lint and build three engines with ASR manager
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon --max-workers=4 :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+      - name: Verify APK version and signature
+        run: |
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | grep "versionName='3.7-alpha-vosk-manager'"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK"
+          unzip -t "$APK" >/dev/null
+          cp "$APK" "$RUNNER_TEMP/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-Vosk-v3.7-debug.apk"
+      - name: Publish direct APK while preserving v3.5
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin apk-downloads:refs/remotes/origin/apk-downloads
+          git checkout -B apk-downloads refs/remotes/origin/apk-downloads
+          NAME=OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-Vosk-v3.7-debug.apk
+          cp "$RUNNER_TEMP/$NAME" "$NAME"
+          sha256sum "$NAME" > Vosk-v3.7-SHA256SUMS.txt
+          git add "$NAME" Vosk-v3.7-SHA256SUMS.txt
+          git commit -m "release: publish v3.7 Android Vosk Small/Large selection APK"
+          git push origin HEAD:refs/heads/apk-downloads
