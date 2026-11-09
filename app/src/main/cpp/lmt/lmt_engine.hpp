@@ -1,5 +1,6 @@
 #pragma once
 #include "llama.h"
+#include "lmt_currency_guard.hpp"
 #include <algorithm>
 #include <atomic>
 #include <functional>
@@ -15,7 +16,6 @@ namespace lmt {
 inline std::string build_prompt(std::string source) {
     if (source.empty()) throw std::invalid_argument("Empty LMT input");
     if (source.size() > 32768) throw std::invalid_argument("LMT input exceeds 32 KiB");
-    // Input is data, not an opportunity to inject special ChatML tokens.
     size_t pos = 0;
     while ((pos = source.find("<|", pos)) != std::string::npos) {
         source.replace(pos, 2, "< |");
@@ -33,6 +33,7 @@ class Engine {
     std::unique_ptr<llama_model, ModelDeleter> model_;
     std::unique_ptr<llama_context, ContextDeleter> ctx_;
     std::unique_ptr<llama_sampler, SamplerDeleter> sampler_;
+    std::string last_raw_output_;
     static bool aborted(void* opaque) {
         return static_cast<Engine*>(opaque)->cancelled_.load(std::memory_order_relaxed);
     }
@@ -69,9 +70,14 @@ public:
     Engine(const Engine&) = delete;
     Engine& operator=(const Engine&) = delete;
     void cancel() { cancelled_.store(true, std::memory_order_relaxed); }
+    // Only the host QA executable reads this. JNI never publishes unvalidated currency output.
+    const std::string& last_raw_output() const { return last_raw_output_; }
+
     std::string translate(const std::string& source,
                           const std::function<void(const std::string&)>& stream = {}) {
         check_cancelled();
+        last_raw_output_.clear();
+        const bool currency_sensitive = mentions_rubles(source);
         const auto prompt = build_prompt(source);
         const auto* vocab = llama_model_get_vocab(model_.get());
         int count = llama_tokenize(vocab, prompt.data(), static_cast<int>(prompt.size()), nullptr, 0, true, true);
@@ -95,7 +101,14 @@ public:
         for (int i = 0; i < max_output; ++i) {
             check_cancelled();
             auto token = llama_sampler_sample(sampler_.get(), ctx_.get(), -1);
-            if (llama_vocab_is_eog(vocab, token)) return output;
+            if (llama_vocab_is_eog(vocab, token)) {
+                last_raw_output_ = output;
+                auto checked = validate_currency(source, output);
+                // Hold currency-sensitive output until validated, including partial UI streams.
+                // Do not 'correct' an amount/currency by guessing from a faulty model output.
+                if (currency_sensitive && stream) stream(checked);
+                return checked;
+            }
             std::vector<char> piece(256);
             int size = llama_token_to_piece(vocab, token, piece.data(), static_cast<int>(piece.size()), 0, false);
             if (size < 0) {
@@ -106,12 +119,11 @@ public:
             if (size > 0) {
                 std::string chunk(piece.data(), size);
                 output += chunk;
-                if (stream) stream(chunk);
+                if (stream && !currency_sensitive) stream(chunk);
             }
             auto batch = llama_batch_get_one(&token, 1);
             if (llama_decode(ctx_.get(), batch) != 0) throw std::runtime_error("LMT generation failed or cancelled");
         }
-        // Never report an incomplete translation as a successfully finished sentence.
         throw std::runtime_error("LMT output reached 512 tokens; shorten the utterance");
     }
 };

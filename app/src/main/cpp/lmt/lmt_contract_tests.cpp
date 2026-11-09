@@ -14,7 +14,18 @@ int main() {
         try { lmt::build_prompt(std::string(32769, 'a')); } catch (const std::invalid_argument&) { long_input = true; }
         try { lmt::Engine engine("/does-not-exist/lmt.gguf"); } catch (const std::runtime_error&) { missing = true; }
         REQUIRE(empty && long_input && missing);
-        std::cout << "PASS: prompt, injection escaping, UTF-8, empty/long input, missing model\n";
+        REQUIRE(lmt::mentions_rubles("Цена составляет 1000 рублей за тонну."));
+        REQUIRE(lmt::mentions_rubles("1000 РУБЛЕЙ"));
+        REQUIRE(lmt::mentions_rubles("1000 руб."));
+        REQUIRE(lmt::mentions_rubles("1000RUB"));
+        REQUIRE(lmt::mentions_rubles("1000 ₽"));
+        REQUIRE(!lmt::mentions_rubles("зарубка"));
+        REQUIRE(!lmt::mentions_rubles("Цена в юанях"));
+        REQUIRE(lmt::validate_currency("1000 рублей", "每吨1000元") == lmt::currency_warning);
+        REQUIRE(lmt::validate_currency("1000 рублей", "每吨1000卢布") == "每吨1000卢布");
+        REQUIRE(lmt::validate_currency("1000 RUB", "1000 RUB") == "1000 RUB");
+        REQUIRE(lmt::validate_currency("300 тонн", "300吨") == "300吨");
+        std::cout << "PASS: prompt, injection escaping, UTF-8, input bounds, missing model, ruble currency guard\n";
         return 0;
     } catch (const std::exception& e) { std::cerr << e.what() << '\n'; return 1; }
 }

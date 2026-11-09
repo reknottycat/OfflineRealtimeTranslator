@@ -5,9 +5,15 @@ int main(int argc, char** argv) {
     try {
         lmt::Engine engine(argv[1]);
         for (const auto& input : {"Здравствуйте. Мы хотим купить 300 тонн кукурузы.", "Цена составляет 1000 рублей за тонну."}) {
-            auto output = engine.translate(input);
+            std::string streamed;
+            auto output = engine.translate(input, [&](const std::string& part) { streamed += part; });
+            if (output != streamed) throw std::runtime_error("Stream differs from final validated output");
+            auto raw = engine.last_raw_output();
             std::replace(output.begin(), output.end(), '\n', ' ');
-            std::cout << input << '\t' << output << '\n';
+            std::replace(raw.begin(), raw.end(), '\n', ' ');
+            std::replace(output.begin(), output.end(), '\t', ' ');
+            std::replace(raw.begin(), raw.end(), '\t', ' ');
+            std::cout << input << '\t' << output << '\t' << raw << '\n';
         }
         engine.cancel();
         bool cancelled = false;

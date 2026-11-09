@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Real-weight smoke test. No claims of phone/GPU performance are inferred from this CPU test."""
+"""Test actual weights; distinguish translation quality from runtime/guard correctness."""
 import hashlib
 import json
 from pathlib import Path
@@ -11,6 +11,7 @@ import urllib.request
 REVISION = "f03d51b43463d8a457eee1cd765220de69e9bac8"
 SHA256 = "54c6244f100330264cef607188413ee82cb8a254f0cf950011aaa9cee74f7eb5"
 URL = f"https://huggingface.co/mradermacher/LMT-60-1.7B-GGUF/resolve/{REVISION}/LMT-60-1.7B.Q4_K_M.gguf"
+WARNING = "[LMT 币种校验未通过：原文含卢布，译文未保留币种，请核对原文。]"
 
 def download():
     path = Path('/tmp/lmt-smoke.gguf')
@@ -42,20 +43,31 @@ def download():
 def check():
     lines = Path('lmt-smoke.tsv').read_text(encoding='utf-8').splitlines()
     if len(lines) != 2:
-        raise AssertionError(f'Expected two actual translations, received {lines!r}')
+        raise AssertionError(f'Expected two actual inferences, received {lines!r}')
     samples = []
-    for line, number in zip(lines, ['300', '1000']):
-        source, translated = line.split('\t', 1)
-        if not re.search(r'[\u3400-\u9fff]', translated):
-            raise AssertionError(f'No Chinese in output: {translated!r}')
-        if number not in translated:
-            raise AssertionError(f'Number {number} was not preserved: {translated!r}')
-        if '<|im_' in translated or 'Translate the following' in translated:
-            raise AssertionError('Template/prompt leaked into output')
-        samples.append({'russian': source, 'chinese': translated, 'number_preserved': number})
-    report = {'passed': True, 'platform': 'Linux x86_64 CPU', 'shared_core': 'app/src/main/cpp/lmt/lmt_engine.hpp',
-              'sampling': 'greedy; not the paper beam-search benchmark', 'samples': samples,
-              'cancellation_asserted_by_executable': True, 'android_device_tested': False}
+    issues = []
+    for index, (line, number) in enumerate(zip(lines, ['300', '1000'])):
+        source, displayed, raw = line.split('\t', 2)
+        if not re.search(r'[\u3400-\u9fff]', raw) or number not in raw:
+            raise AssertionError(f'Raw output missing Chinese or number {number}: {raw!r}')
+        if '<|im_' in raw or 'Translate the following' in raw:
+            raise AssertionError('Template/prompt leaked into raw output')
+        currency_preserved = index == 0 or any(word in raw for word in ['卢布', '盧布', 'RUB', 'rub', '₽'])
+        if not currency_preserved:
+            if displayed != WARNING:
+                raise AssertionError(f'Incorrect currency output was not blocked: {displayed!r}')
+            issues.append({'sample': index + 1, 'issue': 'Raw model failed to preserve ruble currency',
+                           'mitigation': 'Output withheld, explicit warning displayed; no guessed currency replacement'})
+        elif displayed != raw:
+            raise AssertionError('Correct/non-currency output unexpectedly changed')
+        samples.append({'russian': source, 'raw_model_chinese': raw, 'displayed_chinese': displayed,
+                        'number_preserved_in_raw': number, 'ruble_currency_preserved_in_raw': currency_preserved,
+                        'guard_blocked': not currency_preserved})
+    report = {'runtime_and_guard_passed': True, 'quality_accepted': not issues,
+              'platform': 'Linux x86_64 CPU', 'shared_core': 'app/src/main/cpp/lmt/lmt_engine.hpp',
+              'sampling': 'greedy; not a paper benchmark', 'samples': samples, 'known_quality_issues': issues,
+              'stream_matches_validated_final': True, 'post_cancel_call_rejected': True,
+              'android_device_tested': False}
     Path('lmt-smoke-report.json').write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
     print(json.dumps(report, ensure_ascii=False, indent=2))
 
