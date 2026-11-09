@@ -44,6 +44,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin apk-downloads:refs/remotes/origin/apk-downloads
+          git restore --source=HEAD --staged --worktree gradlew
           git checkout -B apk-downloads refs/remotes/origin/apk-downloads
           NAME=OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-Vosk-v3.7-debug.apk
           cp "$RUNNER_TEMP/$NAME" "$NAME"
