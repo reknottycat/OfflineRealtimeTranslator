@@ -11,8 +11,8 @@ android {
         applicationId = "com.bohanli.ruzhtranslator"
         minSdk = 29
         targetSdk = 36
-        versionCode = 39
-        versionName = "3.9-alpha-vosk-fix"
+        versionCode = 40
+        versionName = "4.0-alpha-gigaam"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += "arm64-v8a" }
         externalNativeBuild {
@@ -25,7 +25,7 @@ android {
         // therefore cannot safely be upgraded in place. Use a distinct preview
         // application ID so the user can preserve the original app and its history.
         debug {
-            applicationIdSuffix = ".preview"
+            applicationIdSuffix = ".preview.gigaam"
         }
         release {
             isMinifyEnabled = false
@@ -43,6 +43,13 @@ android {
             version = "3.22.1"
         }
     }
+    packaging {
+        jniLibs {
+            // sherpa-onnx AAR may bundle an ONNX Runtime shared library already
+            // provided by recasepunc's Java ONNX Runtime; the APK must carry one.
+            pickFirsts += listOf("**/libonnxruntime.so", "**/libc++_shared.so")
+        }
+    }
     buildFeatures { viewBinding = true }
     androidResources { noCompress += listOf("bin", "onnx", "model", "bpe", "litertlm", "gguf") }
 }
@@ -55,6 +62,8 @@ dependencies {
     implementation(libs.androidx.constraintlayout)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.vosk.android)
+    // Official sherpa-onnx Android AAR, pinned SHA-256; downloaded before Gradle by scripts/setup_sherpa_aar.py
+    implementation(files("libs/sherpa-onnx-2.0.1.aar"))
     implementation(libs.onnxruntime.android)
     // Gemma remains LiteRT-LM; the GGUF bridge owns distinct LMT/HY-MT2 profiles.
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.16.1")
