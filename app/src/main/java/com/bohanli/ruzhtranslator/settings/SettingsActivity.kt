@@ -13,6 +13,7 @@ import com.bohanli.ruzhtranslator.R
 import com.bohanli.ruzhtranslator.core.ModelCatalog
 import com.bohanli.ruzhtranslator.core.ModelDownloader
 import com.bohanli.ruzhtranslator.databinding.ActivitySettingsBinding
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -22,157 +23,145 @@ import kotlinx.coroutines.launch
 class SettingsActivity : AppCompatActivity() {
     private lateinit var binding: ActivitySettingsBinding
     private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private val downloader by lazy { ModelDownloader(this) }
-
-    private val sourceKeys = listOf(
-        AppSettings.SOURCE_HF,
-        AppSettings.SOURCE_HF_MIRROR,
-        AppSettings.SOURCE_MODELSCOPE
-    )
-    private val importModel = registerForActivityResult(
-        ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        if (uri != null) startModelOperation {
-            downloader.importFrom(uri, ::showProgress)
+    private val sourceKeys = listOf("auto", AppSettings.SOURCE_HF, AppSettings.SOURCE_HF_MIRROR, AppSettings.SOURCE_MODELSCOPE)
+    private val customUrls by lazy { getSharedPreferences("model_custom_urls", MODE_PRIVATE) }
+    private var rendering = false
+    private var busy = false
+    private var renderedEngine = AppSettings.ENGINE_GEMMA4
+    private var pendingImportEngine = AppSettings.ENGINE_GEMMA4
+    private fun selectedModel() = ModelCatalog.forEngine(AppSettings.translationEngine)
+    private val importModel = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri != null) {
+            val installer = ModelDownloader(this, ModelCatalog.forEngine(pendingImportEngine))
+            startModelOperation { installer.importFrom(uri, ::showProgress) }
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AppSettings.init(this)
+        pendingImportEngine = savedInstanceState?.getString("import_engine") ?: AppSettings.translationEngine
         binding = ActivitySettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)
         binding.btnBack.setOnClickListener { finish() }
-        binding.tvVersion.text = "v3.3-alpha · Gemma 4 E2B"
-
-        binding.radioAsrModel.check(
-            if (AppSettings.asrModel == AppSettings.ASR_MODEL_LARGE)
-                binding.rbAsrLarge.id else binding.rbAsrSmall.id
-        )
-        binding.radioAsrModel.setOnCheckedChangeListener { _, checkedId ->
-            val name = if (checkedId == binding.rbAsrLarge.id)
-                AppSettings.ASR_MODEL_LARGE else AppSettings.ASR_MODEL_SMALL
-            if (name != AppSettings.asrModel) {
-                AppSettings.asrModel = name
-                toast(getString(R.string.asr_changed_toast))
+        binding.tvVersion.text = "v3.4-alpha · Gemma 4 / NiuTrans LMT"
+        binding.radioAsrModel.check(if (AppSettings.asrModel == AppSettings.ASR_MODEL_LARGE)
+            binding.rbAsrLarge.id else binding.rbAsrSmall.id)
+        binding.radioAsrModel.setOnCheckedChangeListener { _, id ->
+            AppSettings.asrModel = if (id == binding.rbAsrLarge.id) AppSettings.ASR_MODEL_LARGE else AppSettings.ASR_MODEL_SMALL
+        }
+        binding.radioTranslationEngine.setOnCheckedChangeListener { _, id ->
+            if (!rendering && !busy) {
+                customUrls.edit().putString(renderedEngine, binding.etModelUrl.text.toString()).apply()
+                AppSettings.translationEngine = if (id == binding.rbLmt.id) AppSettings.ENGINE_LMT else AppSettings.ENGINE_GEMMA4
+                refreshModelUi()
             }
         }
-
-        binding.radioTranslationEngine.check(binding.rbGemma4.id)
-        // LMT's model/runtime contract is not yet confirmed: never silently use
-        // Gemma and present its output as if it came from LMT.
-        binding.rbLmt.isEnabled = false
-
-        binding.radioInferenceBackend.check(when (AppSettings.inferenceBackend) {
-            AppSettings.BACKEND_CPU -> binding.rbBackendCpu.id
-            AppSettings.BACKEND_GPU -> binding.rbBackendGpu.id
-            else -> binding.rbBackendAuto.id
-        })
-        binding.radioInferenceBackend.setOnCheckedChangeListener { _, checkedId ->
-            AppSettings.inferenceBackend = when (checkedId) {
-                binding.rbBackendCpu.id -> AppSettings.BACKEND_CPU
-                binding.rbBackendGpu.id -> AppSettings.BACKEND_GPU
-                else -> AppSettings.BACKEND_AUTO
+        binding.radioInferenceBackend.setOnCheckedChangeListener { _, id ->
+            if (!rendering && !busy && AppSettings.translationEngine == AppSettings.ENGINE_GEMMA4) {
+                AppSettings.inferenceBackend = when (id) {
+                    binding.rbBackendCpu.id -> AppSettings.BACKEND_CPU
+                    binding.rbBackendGpu.id -> AppSettings.BACKEND_GPU
+                    else -> AppSettings.BACKEND_AUTO
+                }
             }
         }
-
         binding.switchDriftRetry.isChecked = AppSettings.driftRetryEnabled
-        binding.switchDriftRetry.setOnCheckedChangeListener { _, checked ->
-            AppSettings.driftRetryEnabled = checked
-        }
-
-        val options = arrayOf(
-            "Hugging Face（官方）",
-            "HF Mirror（镜像）",
-            "ModelScope（自定义直链）"
-        )
-        binding.spinnerModelSource.adapter = ArrayAdapter(
-            this, R.layout.spinner_item, options
-        ).also { it.setDropDownViewResource(R.layout.spinner_dropdown_item) }
-        val selected = sourceKeys.indexOf(AppSettings.modelSource).coerceAtLeast(0)
-        binding.spinnerModelSource.setSelection(selected)
-        binding.spinnerModelSource.onItemSelectedListener = object :
-            AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(
-                parent: AdapterView<*>?, view: View?, position: Int, id: Long
-            ) {
+        binding.switchDriftRetry.setOnCheckedChangeListener { _, checked -> AppSettings.driftRetryEnabled = checked }
+        binding.spinnerModelSource.adapter = ArrayAdapter(this, R.layout.spinner_item,
+            arrayOf("自动（HF → HF Mirror）", "Hugging Face（托管源）", "HF Mirror（第三方镜像）", "ModelScope / 自定义 HTTPS"))
+            .also { it.setDropDownViewResource(R.layout.spinner_dropdown_item) }
+        binding.spinnerModelSource.setSelection(sourceKeys.indexOf(AppSettings.modelSource).coerceAtLeast(0))
+        binding.spinnerModelSource.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 AppSettings.modelSource = sourceKeys[position]
-                binding.etModelUrl.visibility =
-                    if (sourceKeys[position] == AppSettings.SOURCE_MODELSCOPE)
-                        View.VISIBLE else View.GONE
+                binding.etModelUrl.visibility = if (sourceKeys[position] == AppSettings.SOURCE_MODELSCOPE) View.VISIBLE else View.GONE
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
         binding.btnDownloadModel.setOnClickListener {
-            val url = ModelCatalog.sourceUrl(AppSettings.modelSource)
-                ?: binding.etModelUrl.text.toString().trim()
-            if (url.isBlank()) {
-                toast("请粘贴可信 ModelScope 镜像的 HTTPS 模型文件直链")
-                return@setOnClickListener
+            val spec = selectedModel()
+            val installer = ModelDownloader(this, spec)
+            val urls = when (AppSettings.modelSource) {
+                "auto" -> listOf(spec.url("huggingface.co"), spec.url("hf-mirror.com"))
+                AppSettings.SOURCE_MODELSCOPE -> listOf(binding.etModelUrl.text.toString().trim())
+                else -> listOfNotNull(ModelCatalog.sourceUrl(AppSettings.modelSource, spec.engine))
             }
-            startModelOperation { downloader.download(url, ::showProgress) }
+            if (urls.isEmpty() || urls.any { it.isBlank() }) { toast("请填写对应模型的 HTTPS 文件直链"); return@setOnClickListener }
+            customUrls.edit().putString(spec.engine, binding.etModelUrl.text.toString()).apply()
+            startModelOperation { installer.download(urls, ::showProgress) }
         }
         binding.btnImportModel.setOnClickListener {
+            pendingImportEngine = AppSettings.translationEngine
             importModel.launch(arrayOf("*/*"))
         }
         binding.btnRemoveModel.setOnClickListener {
-            AlertDialog.Builder(this)
-                .setTitle("删除 Gemma 4 本地模型？")
-                .setMessage("将释放约 2.59 GB 空间。返回主界面后需要重新下载才能翻译。")
-                .setNegativeButton("取消", null)
-                .setPositiveButton("删除") { _, _ ->
-                    startModelOperation { downloader.deleteModel() }
+            val spec = selectedModel()
+            AlertDialog.Builder(this).setTitle("删除 ${spec.title}？")
+                .setMessage("仅删除此引擎的本地权重和断点文件，不影响另一个模型或翻译历史。")
+                .setNegativeButton("取消", null).setPositiveButton("删除") { _, _ ->
+                    startModelOperation { ModelDownloader(this, spec).deleteModel() }
                 }.show()
         }
-        updateModelStatus()
+        refreshModelUi()
+    }
+
+    private fun refreshModelUi() {
+        rendering = true
+        val spec = selectedModel()
+        renderedEngine = spec.engine
+        val isLmt = spec.engine == AppSettings.ENGINE_LMT
+        binding.radioTranslationEngine.check(if (isLmt) binding.rbLmt.id else binding.rbGemma4.id)
+        binding.radioInferenceBackend.check(if (isLmt) binding.rbBackendCpu.id else when (AppSettings.inferenceBackend) {
+            AppSettings.BACKEND_CPU -> binding.rbBackendCpu.id
+            AppSettings.BACKEND_GPU -> binding.rbBackendGpu.id
+            else -> binding.rbBackendAuto.id
+        })
+        binding.tvBackendNote.text = if (isLmt)
+            "LMT 本版使用优化后的 ARM64 CPU 后端；不会把 Gemma 的 GPU 设置误标为 LMT 加速。返回主页面生效。"
+        else "Gemma 可使用 GPU 并回退 CPU。切换时先释放旧引擎，不同时驻留两套权重。"
+        binding.tvModelDescription.text = "${spec.title} · ${spec.sizeLabel}\n${spec.fileName}\n" +
+            if (isLmt) "原模型：NiuTrans；GGUF：mradermacher 社区量化。固定版本与 SHA-256。"
+            else "LiteRT-LM 权重；固定版本与 SHA-256。"
+        binding.etModelUrl.setText(customUrls.getString(spec.engine, ""))
+        binding.btnDownloadModel.text = "下载 / 继续下载 ${if (isLmt) "LMT" else "Gemma 4"}"
+        binding.tvModelStatus.text = if (ModelDownloader(this, spec).installed()) "已校验安装 · 可离线使用"
+            else "尚未校验安装 · 请选择来源下载或从本地导入"
+        rendering = false
+        setBusy(busy)
     }
 
     private fun startModelOperation(action: suspend () -> Unit) {
+        if (busy) return
         setBusy(true)
         uiScope.launch {
-            try {
-                action()
-                AppSettings.notifyModelsChanged()
-                updateModelStatus()
-            } catch (e: Exception) {
-                binding.tvModelStatus.text = "操作失败：${e.message}"
-                toast("模型操作未完成，下载可以继续")
-            } finally {
-                setBusy(false)
-            }
+            try { action(); refreshModelUi() }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) { binding.tvModelStatus.text = "操作未完成：${e.message}" }
+            finally { setBusy(false) }
         }
     }
-
-    private fun showProgress(p: ModelDownloader.Progress) {
-        runOnUiThread {
-            val percent = (p.received * 100 / p.expected).toInt().coerceIn(0, 100)
+    private fun showProgress(p: ModelDownloader.Progress) = runOnUiThread {
+        if (!isDestroyed && !isFinishing) {
+            val percent = if (p.expected > 0L) (p.received * 100 / p.expected).toInt().coerceIn(0, 100) else 0
+            binding.progressModel.isIndeterminate = p.expected <= 0L
             binding.progressModel.progress = percent
-            binding.tvModelStatus.text = "${p.stage} · $percent% · ${p.received / (1024 * 1024)} MiB"
+            binding.tvModelStatus.text = "${p.stage} · ${p.received / (1024 * 1024)} MiB" + if (p.expected > 0L) " · $percent%" else ""
         }
     }
-
-    private fun setBusy(busy: Boolean) {
-        binding.btnDownloadModel.isEnabled = !busy
-        binding.btnImportModel.isEnabled = !busy
-        binding.btnRemoveModel.isEnabled = !busy
-        binding.spinnerModelSource.isEnabled = !busy
-        binding.progressModel.visibility = if (busy) View.VISIBLE else View.GONE
+    private fun setBusy(value: Boolean) {
+        busy = value
+        listOf(binding.btnDownloadModel, binding.btnImportModel, binding.btnRemoveModel,
+            binding.spinnerModelSource, binding.etModelUrl, binding.rbGemma4, binding.rbLmt,
+            binding.rbAsrSmall, binding.rbAsrLarge).forEach { it.isEnabled = !value }
+        val canChooseDevice = !value && AppSettings.translationEngine == AppSettings.ENGINE_GEMMA4
+        listOf(binding.rbBackendCpu, binding.rbBackendAuto, binding.rbBackendGpu).forEach { it.isEnabled = canChooseDevice }
+        binding.progressModel.visibility = if (value) View.VISIBLE else View.GONE
     }
-
-    private fun updateModelStatus() {
-        binding.tvModelStatus.text = if (downloader.installed()) {
-            "已安装 Gemma 4 E2B · 可离线运行"
-        } else {
-            "未安装 Gemma 4 · 需要下载约 2.59 GB"
-        }
+    private fun toast(message: String) { Toast.makeText(this, message, Toast.LENGTH_SHORT).show() }
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString("import_engine", pendingImportEngine)
+        super.onSaveInstanceState(outState)
     }
-
-    private fun toast(message: String) {
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
-    }
-
-    override fun onDestroy() {
-        uiScope.cancel()
-        super.onDestroy()
-    }
+    override fun onDestroy() { uiScope.cancel(); super.onDestroy() }
 }

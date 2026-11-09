@@ -1,360 +1,92 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="#FF121212"
-    tools:context=".settings.SettingsActivity">
-
-    <!-- Top bar -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="44dp"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:background="#FF1E1E1E"
-        android:paddingHorizontal="8dp">
-
-        <ImageButton
-            android:id="@+id/btn_back"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_arrow_back"
-            android:scaleType="centerInside"
-            android:contentDescription="@string/back" />
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/settings_title"
-            android:textSize="16sp"
-            android:textColor="#FFFFFFFF"
-            android:layout_marginStart="8dp" />
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:background="#FF121212">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="48dp"
+        android:orientation="horizontal" android:gravity="center_vertical"
+        android:background="#FF1E1E1E" android:paddingHorizontal="8dp">
+        <ImageButton android:id="@+id/btn_back" android:layout_width="48dp" android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless" android:src="@drawable/ic_arrow_back"
+            android:scaleType="centerInside" android:contentDescription="@string/back" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="@string/settings_title" android:textSize="16sp" android:textColor="#FFFFFFFF" />
     </LinearLayout>
-
-    <ScrollView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingVertical="8dp">
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:paddingHorizontal="20dp"
-                android:paddingTop="16dp"
-                android:paddingBottom="6dp"
-                android:text="离线翻译"
-                android:textSize="24sp"
-                android:textStyle="bold"
-                android:textColor="#FFF5F6F6" />
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:paddingHorizontal="20dp"
-                android:paddingBottom="12dp"
-                android:text="翻译引擎、硬件加速与模型文件在这里管理"
-                android:textColor="#FFA7ABB4"
-                android:textSize="13sp" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginHorizontal="12dp"
-                android:layout_marginBottom="12dp"
-                android:padding="16dp"
-                android:orientation="vertical"
-                android:background="@drawable/bg_settings_card">
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="翻译引擎"
-                    android:textColor="#FFF5F5F5"
-                    android:textStyle="bold"
-                    android:textSize="16sp" />
-                <RadioGroup
-                    android:id="@+id/radio_translation_engine"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical">
-                    <RadioButton
-                        android:id="@+id/rb_gemma4"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:buttonTint="#FF10A37F"
-                        android:textColor="#FFECECEC"
-                        android:text="Gemma 4 E2B · LiteRT-LM" />
-                    <RadioButton
-                        android:id="@+id/rb_lmt"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:enabled="false"
-                        android:buttonTint="#FF10A37F"
-                        android:textColor="#FF888888"
-                        android:text="LMT · 下一阶段接入" />
+    <ScrollView android:layout_width="match_parent" android:layout_height="match_parent">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingVertical="12dp">
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:paddingHorizontal="20dp" android:paddingBottom="12dp" android:text="离线翻译"
+                android:textSize="24sp" android:textStyle="bold" android:textColor="#FFF5F6F6" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginHorizontal="12dp" android:layout_marginBottom="12dp"
+                android:padding="16dp" android:orientation="vertical" android:background="@drawable/bg_settings_card">
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="翻译引擎" android:textColor="#FFF5F5F5" android:textStyle="bold" android:textSize="16sp" />
+                <RadioGroup android:id="@+id/radio_translation_engine" android:layout_width="match_parent" android:layout_height="wrap_content">
+                    <RadioButton android:id="@+id/rb_gemma4" android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:buttonTint="#FF10A37F" android:textColor="#FFECECEC" android:text="Gemma 4 E2B · LiteRT-LM" />
+                    <RadioButton android:id="@+id/rb_lmt" android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:buttonTint="#FF10A37F" android:textColor="#FFECECEC" android:text="NiuTrans LMT-60-1.7B · llama.cpp" />
                 </RadioGroup>
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="计算设备"
-                    android:textStyle="bold"
-                    android:textColor="#FFF5F5F5"
-                    android:textSize="15sp"/>
-                <RadioGroup
-                    android:id="@+id/radio_inference_backend"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical">
-                    <RadioButton android:id="@+id/rb_backend_auto"
-                        android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:text="自动 · 优先 GPU，失败回退 CPU"
-                        android:buttonTint="#FF10A37F" android:textColor="#FFECECEC" />
-                    <RadioButton android:id="@+id/rb_backend_gpu"
-                        android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:text="优先 GPU"
-                        android:buttonTint="#FF10A37F" android:textColor="#FFECECEC" />
-                    <RadioButton android:id="@+id/rb_backend_cpu"
-                        android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:text="仅 CPU"
-                        android:buttonTint="#FF10A37F" android:textColor="#FFECECEC" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp" android:text="计算设备" android:textStyle="bold" android:textColor="#FFF5F5F5" android:textSize="15sp" />
+                <RadioGroup android:id="@+id/radio_inference_backend" android:layout_width="match_parent" android:layout_height="wrap_content">
+                    <RadioButton android:id="@+id/rb_backend_auto" android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="自动 · 优先 GPU，失败回退 CPU" android:buttonTint="#FF10A37F" android:textColor="#FFECECEC" />
+                    <RadioButton android:id="@+id/rb_backend_gpu" android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="优先 GPU" android:buttonTint="#FF10A37F" android:textColor="#FFECECEC" />
+                    <RadioButton android:id="@+id/rb_backend_cpu" android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="仅 CPU" android:buttonTint="#FF10A37F" android:textColor="#FFECECEC" />
                 </RadioGroup>
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="修改推理设置后返回主页面即可重新加载引擎"
-                    android:textColor="#FF979AA3"
-                    android:textSize="12sp"/>
+                <TextView android:id="@+id/tv_backend_note" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="切换后返回主页面重新加载；不会同时加载两个翻译模型" android:textColor="#FF979AA3" android:textSize="12sp" />
             </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginHorizontal="12dp"
-                android:layout_marginBottom="14dp"
-                android:padding="16dp"
-                android:orientation="vertical"
-                android:background="@drawable/bg_settings_card">
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="模型管理"
-                    android:textColor="#FFF5F5F5"
-                    android:textStyle="bold"
-                    android:textSize="16sp" />
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="Gemma 4 E2B · 2.59 GB · 完整 SHA-256 校验"
-                    android:textColor="#FFA7ABB4"
-                    android:textSize="13sp"/>
-                <Spinner
-                    android:id="@+id/spinner_model_source"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:layout_marginTop="10dp" />
-                <EditText
-                    android:id="@+id/et_model_url"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:inputType="textUri"
-                    android:singleLine="true"
-                    android:hint="粘贴 ModelScope 的 HTTPS 模型直链"
-                    android:textColor="#FFECECEC"
-                    android:textColorHint="#FF9297A0"
-                    android:visibility="gone" />
-                <TextView
-                    android:id="@+id/tv_model_status"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="检查模型..."
-                    android:textColor="#FFA7ABB4"
-                    android:textSize="13sp"/>
-                <ProgressBar
-                    android:id="@+id/progress_model"
-                    style="?android:attr/progressBarStyleHorizontal"
-                    android:layout_width="match_parent"
-                    android:layout_height="6dp"
-                    android:layout_marginTop="8dp"
-                    android:max="100"
-                    android:progressTint="#FF10A37F"
-                    android:visibility="gone" />
-                <Button
-                    android:id="@+id/btn_download_model"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="下载 / 继续下载 Gemma 4" />
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal">
-                    <Button
-                        android:id="@+id/btn_import_model"
-                        android:layout_width="0dp"
-                        android:layout_weight="1"
-                        android:layout_height="wrap_content"
-                        android:text="从文件导入" />
-                    <Button
-                        android:id="@+id/btn_remove_model"
-                        android:layout_width="0dp"
-                        android:layout_weight="1"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:text="删除模型" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginHorizontal="12dp" android:layout_marginBottom="12dp" android:padding="16dp"
+                android:orientation="vertical" android:background="@drawable/bg_settings_card">
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="模型管理 · 跟随所选引擎" android:textColor="#FFF5F5F5" android:textStyle="bold" android:textSize="16sp" />
+                <TextView android:id="@+id/tv_model_description" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp" android:textColor="#FFA7ABB4" android:textSize="13sp" />
+                <Spinner android:id="@+id/spinner_model_source" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="10dp" />
+                <EditText android:id="@+id/et_model_url" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:inputType="textUri" android:singleLine="true" android:hint="ModelScope 或其他镜像的 HTTPS 模型文件直链"
+                    android:textColor="#FFECECEC" android:textColorHint="#FF9297A0" android:visibility="gone" />
+                <TextView android:id="@+id/tv_model_status" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp" android:textColor="#FFA7ABB4" android:textSize="13sp" />
+                <ProgressBar android:id="@+id/progress_model" style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="match_parent" android:layout_height="6dp" android:layout_marginTop="8dp"
+                    android:max="100" android:progressTint="#FF10A37F" android:visibility="gone" />
+                <Button android:id="@+id/btn_download_model" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp" android:text="下载 / 继续下载" />
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+                    <Button android:id="@+id/btn_import_model" android:layout_width="0dp" android:layout_weight="1"
+                        android:layout_height="wrap_content" android:text="从文件导入" />
+                    <Button android:id="@+id/btn_remove_model" android:layout_width="0dp" android:layout_weight="1"
+                        android:layout_height="wrap_content" android:layout_marginStart="8dp" android:text="删除所选模型" />
                 </LinearLayout>
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="仅下载时使用网络，语音识别与翻译始终在设备本地运行。非官方镜像下载也须通过相同的 SHA-256 校验。"
-                    android:textSize="12sp"
-                    android:textColor="#FF9297A0"/>
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp"
+                    android:text="所有来源使用同一 SHA-256 校验。下载时请保持此页面打开；退出或旋转屏幕会中断，返回后可续传。模型文件不包含在 APK 内。"
+                    android:textSize="12sp" android:textColor="#FF9297A0" />
             </LinearLayout>
-
-            <!-- Section: ASR model -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:paddingHorizontal="16dp"
-                android:paddingVertical="14dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/asr_model_title"
-                    android:textSize="15sp"
-                    android:textColor="#FFFFFFFF"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="@string/asr_model_desc"
-                    android:textSize="13sp"
-                    android:textColor="#FF888888" />
-
-                <RadioGroup
-                    android:id="@+id/radio_asr_model"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:orientation="vertical">
-
-                    <RadioButton
-                        android:id="@+id/rb_asr_small"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/asr_model_small"
-                        android:textColor="#FFFFFFFF"
-                        android:buttonTint="#FF80FF80" />
-
-                    <RadioButton
-                        android:id="@+id/rb_asr_large"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/asr_model_large"
-                        android:textColor="#FFFFFFFF"
-                        android:buttonTint="#FF80FF80" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="@string/asr_model_title" android:textSize="15sp" android:textStyle="bold" android:textColor="#FFFFFFFF" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="@string/asr_model_desc" android:textSize="13sp" android:textColor="#FF888888" />
+                <RadioGroup android:id="@+id/radio_asr_model" android:layout_width="match_parent" android:layout_height="wrap_content">
+                    <RadioButton android:id="@+id/rb_asr_small" android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="@string/asr_model_small" android:textColor="#FFFFFFFF" android:buttonTint="#FF10A37F" />
+                    <RadioButton android:id="@+id/rb_asr_large" android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="@string/asr_model_large" android:textColor="#FFFFFFFF" android:buttonTint="#FF10A37F" />
                 </RadioGroup>
+                <androidx.appcompat.widget.SwitchCompat android:id="@+id/switch_drift_retry"
+                    android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="10dp"
+                    android:text="@string/drift_retry_title" android:textColor="#FFFFFFFF" android:thumbTint="#FF10A37F" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="@string/drift_retry_desc" android:textColor="#FF888888" android:textSize="13sp" />
+                <TextView android:id="@+id/tv_version" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="20dp" android:textColor="#FF888888" android:textSize="13sp" />
             </LinearLayout>
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:layout_marginHorizontal="16dp"
-                android:background="#FF333333" />
-
-            <!-- Section: Drift detection -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:paddingHorizontal="16dp"
-                android:paddingVertical="14dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/drift_retry_title"
-                            android:textSize="15sp"
-                            android:textColor="#FFFFFFFF"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:text="@string/drift_retry_desc"
-                            android:textSize="13sp"
-                            android:textColor="#FF888888" />
-                    </LinearLayout>
-
-                    <androidx.appcompat.widget.SwitchCompat
-                        android:id="@+id/switch_drift_retry"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:thumbTint="#FF80FF80" />
-                </LinearLayout>
-            </LinearLayout>
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:layout_marginHorizontal="16dp"
-                android:background="#FF333333" />
-
-            <!-- Section: About -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:paddingHorizontal="16dp"
-                android:paddingVertical="14dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/about"
-                    android:textSize="15sp"
-                    android:textColor="#FFFFFFFF"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tv_version"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="v3.2"
-                    android:textSize="13sp"
-                    android:textColor="#FF888888" />
-            </LinearLayout>
-
         </LinearLayout>
     </ScrollView>
-
 </LinearLayout>

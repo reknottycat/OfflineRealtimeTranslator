@@ -4,23 +4,19 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
-import android.net.Uri
-import android.os.Build
 import android.os.Bundle
-import android.os.Environment
-import android.provider.Settings
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import android.util.Log
 import android.view.View
-import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.bohanli.ruzhtranslator.asr.RecasepuncProcessor
 import com.bohanli.ruzhtranslator.asr.VoskAsrManager
 import com.bohanli.ruzhtranslator.core.AppStatus
+import com.bohanli.ruzhtranslator.core.ModelCatalog
 import com.bohanli.ruzhtranslator.core.ModelManager
 import com.bohanli.ruzhtranslator.databinding.ActivityMainBinding
 import com.bohanli.ruzhtranslator.history.AppDatabase
@@ -31,199 +27,127 @@ import com.bohanli.ruzhtranslator.settings.SettingsActivity
 import com.bohanli.ruzhtranslator.translation.GemmaTranslator
 import com.bohanli.ruzhtranslator.translation.TranslationQueue
 import com.bohanli.ruzhtranslator.translation.TranslatorHolder
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 class MainActivity : AppCompatActivity() {
-
     companion object {
         private const val TAG = "MainActivity"
-        private const val MODEL_RECASEPUNC  = "vosk-recasepunc-ru-0.22"
-        private const val MODEL_GEMMA       = "gemma-4-E2B-it-litert-lm"
-
-        // 16 bright rainbow colors for dark backgrounds, no white
+        private const val MODEL_RECASEPUNC = "vosk-recasepunc-ru-0.22"
         private val SEGMENT_COLORS = intArrayOf(
-            Color.parseColor("#FFFF6666"), // red
-            Color.parseColor("#FFFF8855"), // red-orange
-            Color.parseColor("#FFFF9944"), // orange
-            Color.parseColor("#FFFFBB44"), // amber
-            Color.parseColor("#FFFFDD55"), // yellow
-            Color.parseColor("#FFCCEE55"), // yellow-green
-            Color.parseColor("#FF80FF80"), // green
-            Color.parseColor("#FF44FFBB"), // emerald
-            Color.parseColor("#FF44FFDD"), // teal
-            Color.parseColor("#FF44DDFF"), // cyan
-            Color.parseColor("#FF66BBFF"), // sky blue
-            Color.parseColor("#FF8899FF"), // blue
-            Color.parseColor("#FFAA88FF"), // indigo
-            Color.parseColor("#FFCC88FF"), // purple
-            Color.parseColor("#FFFF80CC"), // magenta
-            Color.parseColor("#FFFF80A0"), // pink
+            Color.parseColor("#FFFF6666"), Color.parseColor("#FFFF8855"),
+            Color.parseColor("#FFFF9944"), Color.parseColor("#FFFFBB44"),
+            Color.parseColor("#FFFFDD55"), Color.parseColor("#FFCCEE55"),
+            Color.parseColor("#FF80FF80"), Color.parseColor("#FF44FFBB"),
+            Color.parseColor("#FF44FFDD"), Color.parseColor("#FF44DDFF"),
+            Color.parseColor("#FF66BBFF"), Color.parseColor("#FF8899FF"),
+            Color.parseColor("#FFAA88FF"), Color.parseColor("#FFCC88FF"),
+            Color.parseColor("#FFFF80CC"), Color.parseColor("#FFFF80A0")
         )
     }
-
     private lateinit var binding: ActivityMainBinding
-
     private val mainScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
-
+    private var modelsLoading: Job? = null
     private var voskAsr: VoskAsrManager? = null
     private var recasepunc: RecasepuncProcessor? = null
     private var gemmaTranslator: GemmaTranslator? = null
     private var translationQueue: TranslationQueue? = null
-
     @Volatile private var isListening = false
     @Volatile private var isPaused = false
     private var lastPartial = ""
-
-    // Current ASR model name (mirrors AppSettings.asrModel, synced on resume)
     private var currentAsrModel = AppSettings.ASR_MODEL_SMALL
     private var currentTranslationEngine = AppSettings.ENGINE_GEMMA4
     private var currentInferenceBackend = AppSettings.BACKEND_AUTO
     private var currentModelGeneration = 0
-
-    // Guard so rapid Settings toggles don't stack parallel reloads
-    private val asrSwitchInFlight = AtomicBoolean(false)
-
-    // Segment lists for colored display
+    private var settingsOpened = false
+    private var sessionEpoch = 0
     private val russianSegments = mutableListOf<String>()
     private val chineseSegments = mutableListOf<String>()
-
-    // Smart auto-scroll: track whether user has manually scrolled up
     private var autoScrollRussian = true
     private var autoScrollChinese = true
-
-    // Database
+    private var streamingText = StringBuilder()
     private val db by lazy { AppDatabase.getInstance(this) }
-
-    private val requestMicPermission = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) startListening()
-        else updateStatus(AppStatus.Error(getString(R.string.permission_denied)))
+    private val requestMicPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) startListening() else updateStatus(AppStatus.Error(getString(R.string.permission_denied)))
     }
-
-    // Needed on ROMs (e.g. HyperOS for Pad) whose scoped-storage FUSE hides
-    // adb-shell-written files under /sdcard/Android/data/<pkg>/ from the app
-    // UID: we fall back to /sdcard/Download/translator_models/, which requires
-    // "All files access" on Android 11+.
-    private val allFilesAccessLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { maybeLoadModels() }
-
-    // -------------------------------------------------------------------------
-    // Lifecycle
-    // -------------------------------------------------------------------------
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AppSettings.init(this)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
         currentAsrModel = AppSettings.asrModel
         currentTranslationEngine = AppSettings.translationEngine
         currentInferenceBackend = AppSettings.inferenceBackend
         currentModelGeneration = AppSettings.modelGeneration
-
         setupUi()
-        maybeLoadModels()
-    }
-
-    private fun maybeLoadModels() {
-        // App-private models work without invasive all-files permission.
-        // Retain legacy public-directory lookup only if user has granted it.
         loadModels()
     }
 
     override fun onResume() {
         super.onResume()
-        if (gemmaTranslator != null &&
-            (AppSettings.translationEngine != currentTranslationEngine ||
-             AppSettings.inferenceBackend != currentInferenceBackend)) {
-            // Restart cleanly instead of replacing an engine during an in-flight queue item.
+        // Apply all settings at a clean session boundary, even when the old model was missing.
+        if (settingsOpened || AppSettings.translationEngine != currentTranslationEngine ||
+            AppSettings.inferenceBackend != currentInferenceBackend ||
+            AppSettings.modelGeneration != currentModelGeneration || AppSettings.asrModel != currentAsrModel) {
+            settingsOpened = false
             recreate()
-            return
-        }
-        // Refresh model availability only when files actually changed in Settings;
-        // avoids a recreate loop when a model is missing or corrupt.
-        if (AppSettings.modelGeneration != currentModelGeneration) {
-            currentModelGeneration = AppSettings.modelGeneration
-            recreate()
-            return
-        }
-        // Sync ASR model if user changed it in Settings while away
-        val pref = AppSettings.asrModel
-        if (pref != currentAsrModel && voskAsr != null) {
-            Log.i(TAG, "ASR model changed in Settings: $currentAsrModel → $pref")
-            switchAsrModel(pref)
         }
     }
 
     override fun onDestroy() {
-        super.onDestroy()
-        // Save synchronously before canceling scope
+        sessionEpoch++
+        modelsLoading?.cancel()
         saveSessionToHistorySync()
         isListening = false
         isPaused = false
         TranslatorHolder.set(null)
-        voskAsr?.release()
+        translationQueue?.clear()
         translationQueue?.shutdown()
         gemmaTranslator?.destroy()
+        voskAsr?.release()
         recasepunc?.close()
         mainScope.cancel()
+        super.onDestroy()
     }
 
-    // -------------------------------------------------------------------------
-    // UI setup
-    // -------------------------------------------------------------------------
-
     private fun setupUi() {
-        // Start/Stop circular button
         binding.btnStartStop.isEnabled = false
         binding.btnStartStop.alpha = 0.4f
         binding.btnStartStop.setOnClickListener {
-            if (isPaused) {
-                // If paused, stop fully
-                resumeFromPause()
-                stopListening()
-            } else if (isListening) {
-                stopListening()
-            } else {
-                requestMic()
-            }
+            if (isListening || isPaused) stopListening() else requestMic()
         }
-
-        // Pause/Resume button
-        binding.btnPauseResume.setOnClickListener {
-            if (isPaused) resumeFromPause() else pauseListening()
-        }
-
-        // History button → open history tab
+        binding.btnPauseResume.setOnClickListener { if (isPaused) resumeFromPause() else pauseListening() }
         binding.btnHistory.setOnClickListener {
-            startActivity(Intent(this, HistoryActivity::class.java)
-                .putExtra("tab", 0))
+            startActivity(Intent(this, HistoryActivity::class.java).putExtra("tab", 0))
         }
-
-        // Favorites button → open favorites tab
         binding.btnFavorites.setOnClickListener {
-            startActivity(Intent(this, HistoryActivity::class.java)
-                .putExtra("tab", 1))
+            startActivity(Intent(this, HistoryActivity::class.java).putExtra("tab", 1))
         }
-
-        // Settings button → directly open SettingsActivity (no popup)
         binding.btnSettings.setOnClickListener {
+            // No active recorder, queue or translator may keep running while model files are managed.
+            settingsOpened = true
+            sessionEpoch++
+            modelsLoading?.cancel()
+            isListening = false
+            isPaused = false
+            voskAsr?.stopListening()
+            translationQueue?.clear()
+            translationQueue?.shutdown()
+            translationQueue = null
+            TranslatorHolder.set(null)
+            gemmaTranslator?.destroy()
             startActivity(Intent(this, SettingsActivity::class.java))
         }
-
-        // Scroll-to-bottom buttons
         binding.btnScrollBottomRu.setOnClickListener {
             binding.scrollViewRussian.fullScroll(View.FOCUS_DOWN)
             autoScrollRussian = true
@@ -234,470 +158,244 @@ class MainActivity : AppCompatActivity() {
             autoScrollChinese = true
             binding.btnScrollBottomZh.visibility = View.GONE
         }
-
-        // Smart scroll: detect when user scrolls away from bottom
-        setupSmartScroll(binding.scrollViewRussian, { autoScrollRussian },
-            { autoScrollRussian = it }, binding.btnScrollBottomRu)
-        setupSmartScroll(binding.scrollViewChinese, { autoScrollChinese },
-            { autoScrollChinese = it }, binding.btnScrollBottomZh)
+        setupSmartScroll(binding.scrollViewRussian, { autoScrollRussian }, { autoScrollRussian = it }, binding.btnScrollBottomRu)
+        setupSmartScroll(binding.scrollViewChinese, { autoScrollChinese }, { autoScrollChinese = it }, binding.btnScrollBottomZh)
     }
 
-    private fun setupSmartScroll(
-        scrollView: android.widget.ScrollView,
-        getAutoScroll: () -> Boolean,
-        setAutoScroll: (Boolean) -> Unit,
-        scrollBtn: View
-    ) {
+    private fun setupSmartScroll(scrollView: android.widget.ScrollView, getAutoScroll: () -> Boolean,
+                                 setAutoScroll: (Boolean) -> Unit, scrollBtn: View) {
         scrollView.setOnScrollChangeListener { v, _, scrollY, _, _ ->
             val sv = v as android.widget.ScrollView
             val child = sv.getChildAt(0) ?: return@setOnScrollChangeListener
-            val atBottom = scrollY + sv.height >= child.height - 50
-            if (atBottom) {
-                setAutoScroll(true)
-                scrollBtn.visibility = View.GONE
+            if (scrollY + sv.height >= child.height - 50) {
+                setAutoScroll(true); scrollBtn.visibility = View.GONE
             } else if (getAutoScroll()) {
-                // User scrolled up manually
-                setAutoScroll(false)
-                scrollBtn.visibility = View.VISIBLE
+                setAutoScroll(false); scrollBtn.visibility = View.VISIBLE
             }
         }
     }
-
-    // -------------------------------------------------------------------------
-    // ASR model switching (driven from SettingsActivity)
-    // -------------------------------------------------------------------------
-
-    private fun switchAsrModel(newModel: String) {
-        if (newModel == currentAsrModel) return
-        if (!asrSwitchInFlight.compareAndSet(false, true)) {
-            Log.i(TAG, "ASR switch already in flight, ignoring")
-            return
-        }
-
-        // Stop listening if active
-        if (isListening || isPaused) {
-            if (isPaused) resumeFromPause()
-            stopListening()
-        }
-
-        // Disable button during reload
-        binding.btnStartStop.isEnabled = false
-        binding.btnStartStop.alpha = 0.4f
-
-        mainScope.launch {
-            try {
-                updateStatus(AppStatus.Loading("切换模型: $newModel..."))
-
-                // Release old Vosk
-                voskAsr?.release()
-                voskAsr = null
-
-                // Load new model
-                val asrDir = withContext(Dispatchers.IO) {
-                    ModelManager.getModelDir(this@MainActivity, newModel)
-                }
-                if (asrDir == null) {
-                    updateStatus(AppStatus.Error("找不到模型: $newModel"))
-                    reloadVoskAsr(currentAsrModel)
-                    return@launch
-                }
-
-                val asr = VoskAsrManager(
-                    modelPath     = asrDir.absolutePath,
-                    onPartial     = { text -> onVoskPartial(text) },
-                    onFinalResult = { text -> onVoskFinal(text) },
-                    onError       = { msg  -> updateStatus(AppStatus.Error(msg)) }
-                )
-                asr.initialize()
-                voskAsr = asr
-
-                currentAsrModel = newModel
-                AppSettings.asrModel = newModel
-
-                binding.btnStartStop.isEnabled = true
-                binding.btnStartStop.alpha = 0.75f
-                updateStatus(AppStatus.Ready)
-                Toast.makeText(this@MainActivity,
-                    getString(R.string.model_switched, newModel), Toast.LENGTH_SHORT).show()
-
-            } catch (e: Exception) {
-                Log.e(TAG, "Model switch failed", e)
-                updateStatus(AppStatus.Error("模型切换失败: ${e.message}"))
-                reloadVoskAsr(currentAsrModel)
-            } finally {
-                asrSwitchInFlight.set(false)
-            }
-        }
-    }
-
-    private suspend fun reloadVoskAsr(model: String) {
-        try {
-            val dir = withContext(Dispatchers.IO) {
-                ModelManager.getModelDir(this@MainActivity, model)
-            } ?: return
-            val asr = VoskAsrManager(
-                modelPath     = dir.absolutePath,
-                onPartial     = { text -> onVoskPartial(text) },
-                onFinalResult = { text -> onVoskFinal(text) },
-                onError       = { msg  -> updateStatus(AppStatus.Error(msg)) }
-            )
-            asr.initialize()
-            voskAsr = asr
-            binding.btnStartStop.isEnabled = true
-            binding.btnStartStop.alpha = 0.75f
-            updateStatus(AppStatus.Ready)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to reload ASR", e)
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // Model loading (parallel)
-    // -------------------------------------------------------------------------
 
     private fun loadModels() {
-        mainScope.launch {
+        val spec = ModelCatalog.forEngine(currentTranslationEngine)
+        val translator = GemmaTranslator(currentTranslationEngine, currentInferenceBackend)
+        gemmaTranslator = translator
+        modelsLoading = mainScope.launch {
+            var startupAsr: VoskAsrManager? = null
+            var startupPunctuation: RecasepuncProcessor? = null
+            var complete = false
             try {
-                updateStatus(AppStatus.Loading("加载模型..."))
+                updateStatus(AppStatus.Loading("加载 ${spec.title}..."))
                 val loadedCount = AtomicInteger(0)
-
-                coroutineScope {
-                    // Vosk ASR
-                    val asrDeferred = async(Dispatchers.IO) {
-                        val dir = ModelManager.getModelDir(this@MainActivity, currentAsrModel)
-                            ?: throw IllegalStateException(
-                                "找不到 Vosk ASR 模型 ($currentAsrModel)。请放至任一位置：\n" +
-                                "• ${ModelManager.getPublicFallbackPath()}/$currentAsrModel/\n" +
-                                "• ${ModelManager.getExternalModelDir(this@MainActivity)}/$currentAsrModel/"
-                            )
-                        val asr = VoskAsrManager(
-                            modelPath     = dir.absolutePath,
-                            onPartial     = { text -> onVoskPartial(text) },
-                            onFinalResult = { text -> onVoskFinal(text) },
-                            onError       = { msg  -> updateStatus(AppStatus.Error(msg)) }
-                        )
-                        asr.initialize()
-                        val n = loadedCount.incrementAndGet()
-                        withContext(Dispatchers.Main) {
-                            updateStatus(AppStatus.Loading("加载模型 ($n/3)..."))
-                        }
-                        asr
-                    }
-
-                    // Recasepunc
-                    val recasepuncDeferred = async(Dispatchers.IO) {
-                        val dir = ModelManager.getModelDir(this@MainActivity, MODEL_RECASEPUNC)
-                        if (dir == null) Log.w(TAG, "Recasepunc model not found – punctuation skipped")
-                        val rcp = RecasepuncProcessor(dir)
-                        val n = loadedCount.incrementAndGet()
-                        withContext(Dispatchers.Main) {
-                            updateStatus(AppStatus.Loading("加载模型 ($n/3)..."))
-                        }
-                        rcp
-                    }
-
-                    // Gemma translator
-                    val gemmaDeferred = async(Dispatchers.IO) {
-                        val dir = ModelManager.getModelDir(this@MainActivity, MODEL_GEMMA)
-                        if (dir == null) Log.w(TAG, "Gemma model not found")
-                        check(AppSettings.translationEngine == AppSettings.ENGINE_GEMMA4) {
-                            "LMT backend is not installed; choose Gemma 4 in Settings."
-                        }
-                        val translator = GemmaTranslator()
-                        if (dir != null) translator.initialize(dir)
-                        val n = loadedCount.incrementAndGet()
-                        withContext(Dispatchers.Main) {
-                            updateStatus(AppStatus.Loading("加载模型 ($n/3)..."))
-                        }
-                        translator
-                    }
-
-                    voskAsr = asrDeferred.await()
-                    recasepunc = recasepuncDeferred.await()
-                    gemmaTranslator = gemmaDeferred.await()
+                suspend fun progress() {
+                    val count = loadedCount.incrementAndGet()
+                    withContext(Dispatchers.Main) { updateStatus(AppStatus.Loading("加载 ${spec.title} ($count/3)...")) }
                 }
-
-                // Publish translator so other components can reuse it without loading a second copy
-                TranslatorHolder.set(gemmaTranslator)
-
-                // Translation queue (needs gemmaTranslator ready)
-                translationQueue = TranslationQueue(
-                    translator    = gemmaTranslator!!,
-                    onResult      = { result -> finalizeChinese(result) },
-                    onStreamToken = { token -> appendStreamToken(token) },
+                val initialized = coroutineScope {
+                    val asr = async(Dispatchers.IO) {
+                        val dir = ModelManager.getModelDir(this@MainActivity, currentAsrModel)
+                            ?: error("找不到 Vosk ASR 模型 ($currentAsrModel)。请放至：\n" +
+                                "${ModelManager.getExternalModelDir(this@MainActivity)}/$currentAsrModel/")
+                        val instance = VoskAsrManager(dir.absolutePath,
+                            { onVoskPartial(it) }, { onVoskFinal(it) }, { updateStatus(AppStatus.Error(it)) })
+                        startupAsr = instance
+                        instance.initialize()
+                        progress()
+                        instance
+                    }
+                    val punctuation = async(Dispatchers.IO) {
+                        val dir = ModelManager.getModelDir(this@MainActivity, MODEL_RECASEPUNC)
+                        val instance = RecasepuncProcessor(dir)
+                        startupPunctuation = instance
+                        progress()
+                        instance
+                    }
+                    val translation = async(Dispatchers.IO) {
+                        val dir = ModelManager.getModelDir(this@MainActivity, spec.directory)
+                            ?: error("${spec.title} 模型未安装，打开设置下载或导入 ${spec.fileName}")
+                        translator.initialize(dir)
+                        progress()
+                    }
+                    val readyAsr = asr.await()
+                    val readyPunctuation = punctuation.await()
+                    translation.await()
+                    readyAsr to readyPunctuation
+                }
+                voskAsr = initialized.first
+                recasepunc = initialized.second
+                TranslatorHolder.set(translator)
+                translationQueue = TranslationQueue(translator,
+                    onResult = { finalizeChinese(it) },
+                    onStreamToken = { appendStreamToken(it) },
                     onStreamStart = { startChineseStream() },
                     onBusyChanged = { busy ->
                         if (busy) updateStatus(AppStatus.Translating)
-                        else if (isListening) updateStatus(AppStatus.Listening)
                         else if (isPaused) updateStatus(AppStatus.Paused)
-                    }
-                )
-
-                // Do not start an unusable translation session before the user has
-                // installed the separately downloaded Gemma 4 bundle.
-                val ready = gemmaTranslator?.isAvailable() == true
-                binding.btnStartStop.isEnabled = ready
-                binding.btnStartStop.alpha = if (ready) 0.75f else 0.4f
-                if (ready) {
-                    updateStatus(AppStatus.Ready)
-                    requestMic()
-                } else {
-                    updateStatus(AppStatus.Error("Gemma 4 模型未安装，打开设置下载或导入"))
-                }
-
+                        else if (isListening) updateStatus(AppStatus.Listening)
+                        else updateStatus(AppStatus.Ready)
+                    })
+                complete = true
+                binding.btnStartStop.isEnabled = translator.isAvailable()
+                binding.btnStartStop.alpha = if (translator.isAvailable()) 0.75f else 0.4f
+                updateStatus(if (translator.isAvailable()) AppStatus.Ready else AppStatus.Error("翻译引擎未就绪"))
+                // Opening the app or changing an engine must not automatically turn the microphone on.
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Model loading failed", e)
                 updateStatus(AppStatus.Error(e.message ?: "模型加载失败"))
+            } finally {
+                if (!complete) {
+                    translator.destroy()
+                    startupAsr?.release()
+                    startupPunctuation?.close()
+                    if (voskAsr === startupAsr) voskAsr = null
+                    if (recasepunc === startupPunctuation) recasepunc = null
+                }
             }
         }
     }
 
-    // -------------------------------------------------------------------------
-    // Vosk callbacks  (already on Main thread via VoskAsrManager)
-    // -------------------------------------------------------------------------
-
     private fun onVoskPartial(partial: String) {
+        if (settingsOpened || isDestroyed) return
         lastPartial = partial
         updateRussianDisplay(partial)
     }
-
     private fun onVoskFinal(rawText: String) {
+        if (settingsOpened || isDestroyed) return
         lastPartial = ""
-        if (rawText.isBlank()) {
-            updateRussianDisplay()
-            return
-        }
-
+        if (rawText.isBlank()) { updateRussianDisplay(); return }
         val rcp = recasepunc
         val queue = translationQueue
-
+        val epoch = sessionEpoch
         mainScope.launch {
             val processed = withContext(Dispatchers.IO) {
-                val result = rcp?.takeIf { it.isAvailable() }?.process(rawText) ?: rawText
-                Log.d(TAG, "Recasepunc: in=[$rawText] out=[$result] available=${rcp?.isAvailable()}")
-                result
+                rcp?.takeIf { it.isAvailable() }?.process(rawText) ?: rawText
             }
-            if (processed.isNotBlank()) {
-                appendRussianSegment(processed)
-                queue?.submit(processed)
-            }
+            if (epoch != sessionEpoch || settingsOpened) return@launch
+            if (processed.isNotBlank()) { appendRussianSegment(processed); queue?.submit(processed) }
             updateRussianDisplay()
         }
     }
-
-    // -------------------------------------------------------------------------
-    // Start / Stop / Pause / Resume
-    // -------------------------------------------------------------------------
-
     private fun requestMic() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-                == PackageManager.PERMISSION_GRANTED) {
+        if (gemmaTranslator?.isAvailable() != true) {
+            updateStatus(AppStatus.Error("请先安装并加载所选翻译模型")); return
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED)
             startListening()
-        } else {
-            requestMicPermission.launch(Manifest.permission.RECORD_AUDIO)
-        }
+        else requestMicPermission.launch(Manifest.permission.RECORD_AUDIO)
     }
-
     private fun startListening() {
-        val asr = voskAsr ?: run {
-            updateStatus(AppStatus.Error("语音识别引擎未就绪")); return
-        }
-        // Save previous session before starting a new one
+        if (settingsOpened || gemmaTranslator?.isAvailable() != true) return
+        val asr = voskAsr ?: run { updateStatus(AppStatus.Error("语音识别引擎未就绪")); return }
+        sessionEpoch++
         saveSessionToHistory()
-        isListening = true
-        isPaused = false
+        isListening = true; isPaused = false
         asr.startListening()
         updateStatus(AppStatus.Listening)
-        // Switch to red stop icon
         binding.btnStartStop.setImageResource(R.drawable.ic_stop_square)
         binding.btnStartStop.setBackgroundResource(R.drawable.bg_circle_button_stop)
-        // Show pause button
         binding.btnPauseResume.visibility = View.VISIBLE
         binding.btnPauseResume.setImageResource(R.drawable.ic_pause)
         binding.btnPauseResume.setBackgroundResource(R.drawable.bg_circle_button_pause)
     }
-
     private fun stopListening() {
-        isListening = false
-        isPaused = false
+        isListening = false; isPaused = false
         voskAsr?.stopListening()
-
+        translationQueue?.resume()
         if (lastPartial.isNotBlank()) {
-            val text = lastPartial
-            lastPartial = ""
-            appendRussianSegment(text)
-            translationQueue?.submit(text)
+            val text = lastPartial; lastPartial = ""
+            appendRussianSegment(text); translationQueue?.submit(text)
         }
         updateRussianDisplay()
-
         updateStatus(AppStatus.Ready)
-        // Switch to green play icon
         binding.btnStartStop.setImageResource(R.drawable.ic_play_arrow)
         binding.btnStartStop.setBackgroundResource(R.drawable.bg_circle_button_start)
-        // Hide pause button
         binding.btnPauseResume.visibility = View.GONE
     }
-
     private fun pauseListening() {
         isPaused = true
         voskAsr?.stopListening()
-
-        // Flush any pending partial to queue
         if (lastPartial.isNotBlank()) {
-            val text = lastPartial
-            lastPartial = ""
-            appendRussianSegment(text)
-            translationQueue?.submit(text)
+            val text = lastPartial; lastPartial = ""
+            appendRussianSegment(text); translationQueue?.submit(text)
             updateRussianDisplay()
         }
-
-        // Pause queue (finishes current translation, then waits)
         translationQueue?.pause()
-
         updateStatus(AppStatus.Paused)
-        // Change pause button to resume (play arrow with amber bg)
         binding.btnPauseResume.setImageResource(R.drawable.ic_play_arrow)
         binding.btnPauseResume.setBackgroundResource(R.drawable.bg_circle_button_start)
     }
-
     private fun resumeFromPause() {
+        if (gemmaTranslator?.isAvailable() != true) return
         isPaused = false
         translationQueue?.resume()
         voskAsr?.startListening()
         isListening = true
-
         updateStatus(AppStatus.Listening)
-        // Change back to pause icon
         binding.btnPauseResume.setImageResource(R.drawable.ic_pause)
         binding.btnPauseResume.setBackgroundResource(R.drawable.bg_circle_button_pause)
     }
-
-    // -------------------------------------------------------------------------
-    // History persistence
-    // -------------------------------------------------------------------------
-
     private fun saveSessionToHistory() {
         if (russianSegments.isEmpty() && chineseSegments.isEmpty()) return
-        // Discard pending/in-flight translations from the old session
         translationQueue?.clear()
         streamingText.clear()
         if (russianSegments.isNotEmpty() && chineseSegments.isNotEmpty()) {
             val ruText = russianSegments.joinToString("\n")
             val zhText = chineseSegments.joinToString("\n")
-            mainScope.launch {
-                withContext(Dispatchers.IO) {
-                    db.translationDao().insert(
-                        TranslationRecord(ruText = ruText, zhText = zhText)
-                    )
-                }
-                Log.d(TAG, "Session saved to history: ${russianSegments.size} ru, ${chineseSegments.size} zh")
-            }
+            mainScope.launch { withContext(Dispatchers.IO) {
+                db.translationDao().insert(TranslationRecord(ruText = ruText, zhText = zhText))
+            } }
         }
-        russianSegments.clear()
-        chineseSegments.clear()
-        binding.tvRussianHistory.text = ""
-        binding.tvChineseHistory.text = ""
+        russianSegments.clear(); chineseSegments.clear()
+        binding.tvRussianHistory.text = ""; binding.tvChineseHistory.text = ""
     }
-
-    /** Synchronous version for onDestroy — runs on calling thread. */
     private fun saveSessionToHistorySync() {
         if (russianSegments.isEmpty() || chineseSegments.isEmpty()) return
         val ruText = russianSegments.joinToString("\n")
         val zhText = chineseSegments.joinToString("\n")
         try {
             kotlinx.coroutines.runBlocking(Dispatchers.IO) {
-                db.translationDao().insert(
-                    TranslationRecord(ruText = ruText, zhText = zhText)
-                )
+                db.translationDao().insert(TranslationRecord(ruText = ruText, zhText = zhText))
             }
-            Log.d(TAG, "Session saved to history (sync): ${russianSegments.size} segments")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to save session on destroy", e)
-        }
-        russianSegments.clear()
-        chineseSegments.clear()
+        } catch (e: Exception) { Log.e(TAG, "Failed to save session", e) }
+        russianSegments.clear(); chineseSegments.clear()
     }
-
-    // -------------------------------------------------------------------------
-    // UI helpers  (all called on Main)
-    // -------------------------------------------------------------------------
-
     private fun updateStatus(status: AppStatus) {
-        binding.tvStatus.text = status.toDisplayString()
+        if (!isDestroyed && !settingsOpened) binding.tvStatus.text =
+            "${ModelCatalog.forEngine(currentTranslationEngine).title} · ${status.toDisplayString()}"
     }
-
-    private fun appendRussianSegment(text: String) {
-        russianSegments.add(text)
-    }
-
+    private fun appendRussianSegment(text: String) { russianSegments.add(text) }
     private fun updateRussianDisplay(partial: String = "") {
         val ssb = SpannableStringBuilder()
-
-        for ((i, seg) in russianSegments.withIndex()) {
+        for ((i, segment) in russianSegments.withIndex()) {
             if (ssb.isNotEmpty()) ssb.append("\n")
-            val start = ssb.length
-            ssb.append(seg)
-            val color = SEGMENT_COLORS[i % SEGMENT_COLORS.size]
-            ssb.setSpan(ForegroundColorSpan(color), start, ssb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            val start = ssb.length; ssb.append(segment)
+            ssb.setSpan(ForegroundColorSpan(SEGMENT_COLORS[i % SEGMENT_COLORS.size]), start, ssb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
-
         if (partial.isNotEmpty()) {
             if (ssb.isNotEmpty()) ssb.append("\n")
-            val start = ssb.length
-            ssb.append(partial)
+            val start = ssb.length; ssb.append(partial)
             ssb.setSpan(ForegroundColorSpan(Color.parseColor("#FF888888")), start, ssb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
-
         binding.tvRussianHistory.text = ssb
-        if (autoScrollRussian) {
-            binding.scrollViewRussian.post {
-                binding.scrollViewRussian.fullScroll(View.FOCUS_DOWN)
-            }
-        }
+        if (autoScrollRussian) binding.scrollViewRussian.post { binding.scrollViewRussian.fullScroll(View.FOCUS_DOWN) }
     }
-
-    // Streaming state
-    private var streamingText = StringBuilder()
-
-    private fun startChineseStream() {
-        streamingText.clear()
-    }
-
-    private fun appendStreamToken(token: String) {
-        streamingText.append(token)
-        updateChineseDisplay(streamingText.toString())
-    }
-
-    private fun finalizeChinese(text: String) {
-        streamingText.clear()
-        chineseSegments.add(text)
-        updateChineseDisplay(null)
-    }
-
+    private fun startChineseStream() { streamingText.clear() }
+    private fun appendStreamToken(token: String) { streamingText.append(token); updateChineseDisplay(streamingText.toString()) }
+    private fun finalizeChinese(text: String) { streamingText.clear(); chineseSegments.add(text); updateChineseDisplay(null) }
     private fun updateChineseDisplay(streaming: String?) {
         val ssb = SpannableStringBuilder()
-
-        for ((i, seg) in chineseSegments.withIndex()) {
+        for ((i, segment) in chineseSegments.withIndex()) {
             if (ssb.isNotEmpty()) ssb.append("\n")
-            val start = ssb.length
-            ssb.append(seg)
-            val color = SEGMENT_COLORS[i % SEGMENT_COLORS.size]
-            ssb.setSpan(ForegroundColorSpan(color), start, ssb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            val start = ssb.length; ssb.append(segment)
+            ssb.setSpan(ForegroundColorSpan(SEGMENT_COLORS[i % SEGMENT_COLORS.size]), start, ssb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
-
-        if (streaming != null && streaming.isNotEmpty()) {
+        if (!streaming.isNullOrEmpty()) {
             if (ssb.isNotEmpty()) ssb.append("\n")
-            val start = ssb.length
-            ssb.append(streaming)
-            val color = SEGMENT_COLORS[chineseSegments.size % SEGMENT_COLORS.size]
-            ssb.setSpan(ForegroundColorSpan(color), start, ssb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            val start = ssb.length; ssb.append(streaming)
+            ssb.setSpan(ForegroundColorSpan(SEGMENT_COLORS[chineseSegments.size % SEGMENT_COLORS.size]), start, ssb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
-
         binding.tvChineseHistory.text = ssb
-        if (autoScrollChinese) {
-            binding.scrollViewChinese.post {
-                binding.scrollViewChinese.fullScroll(View.FOCUS_DOWN)
-            }
-        }
+        if (autoScrollChinese) binding.scrollViewChinese.post { binding.scrollViewChinese.fullScroll(View.FOCUS_DOWN) }
     }
 }
