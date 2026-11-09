@@ -2,6 +2,7 @@ package com.bohanli.ruzhtranslator.asr
 
 import android.content.Context
 import android.net.Uri
+import androidx.documentfile.provider.DocumentFile
 import com.bohanli.ruzhtranslator.settings.AppSettings
 import java.io.File
 import java.io.FileOutputStream
@@ -115,6 +116,86 @@ class VoskArchiveInstaller(
                 check(verifyArchive(importFile, report)) { "ZIP 大小或校验不符：请选择正确的 Small/Large 模型压缩包" }
                 unpackAndInstall(importFile, report)
             } finally { importFile.delete() }
+        }
+    }
+
+    /**
+     * Import the original project's already extracted 3.5–3.7 GB model folder
+     * using Android's Storage Access Framework. The user may select the model
+     * directory itself, or its parent containing the exact model directory.
+     */
+    suspend fun importDirectory(treeUri: Uri, report: (Progress) -> Unit) = withContext(Dispatchers.IO) {
+        modelLock.withLock {
+            makeDirectories()
+            check(!previous.exists()) { "发现以前安装中断留下的备份，未覆盖原模型" }
+            val chosen = requireNotNull(DocumentFile.fromTreeUri(app, treeUri)) {
+                "无法访问选择的 Vosk 模型文件夹"
+            }
+            val selected = if (chosen.findFile("am")?.isDirectory == true) chosen
+                else chosen.findFile(spec.id)?.takeIf { it.isDirectory }
+                    ?: throw IOException("请选择包含 am、conf、graph 的 " + spec.id + " 文件夹")
+            check(modelsRoot.usableSpace >= spec.estimatedExpandedBytes + 64L * 1024 * 1024) {
+                "手机空间不足以导入约 3.5–3.7 GB 的已解压 Vosk 模型"
+            }
+            staging.deleteRecursively()
+            check(staging.mkdirs()) { "创建解压模型临时目录失败" }
+            val state = longArrayOf(0L, 0L) // cumulative bytes, file count
+            try {
+                copyDocumentTree(selected, staging, state, report)
+                check(isValidVoskDirectory(staging)) {
+                    "模型文件夹不是可加载的 " + spec.id +
+                        "：缺少 am/final.mdl、conf/mfcc.conf 或 graph/*.fst"
+                }
+                promoteStaging()
+                report(Progress(state[0], state[0], "已导入解压后的 Vosk 模型文件夹"))
+            } finally {
+                if (staging.exists()) staging.deleteRecursively()
+            }
+        }
+    }
+
+    private suspend fun copyDocumentTree(
+        source: DocumentFile, target: File, state: LongArray, report: (Progress) -> Unit
+    ) {
+        for (child in source.listFiles()) {
+            currentCoroutineContext().ensureActive()
+            val name = child.name ?: throw IOException("选中的目录存在无文件名的条目")
+            check(name.isNotBlank() && name != "." && name != ".." &&
+                !name.contains('/') && !name.contains('\\') && !name.contains(':')) {
+                "导入文件夹包含不安全的文件名：" + name
+            }
+            state[1]++
+            check(state[1] <= 20_000L) { "Vosk 文件数量异常" }
+            val output = File(target, name)
+            if (child.isDirectory) {
+                check(output.isDirectory || output.mkdirs()) { "创建 Vosk 子目录失败" }
+                copyDocumentTree(child, output, state, report)
+            } else {
+                check(child.isFile) { "Vosk 模型目录包含不支持的类型" }
+                val expected = child.length()
+                check(expected <= spec.maxExpandedBytes) { "模型单个文件过大" }
+                app.contentResolver.openInputStream(child.uri).use { input ->
+                    requireNotNull(input) { "无法读取：" + name }
+                    FileOutputStream(output).use { sink ->
+                        val buffer = ByteArray(256 * 1024)
+                        var copied = 0L
+                        while (true) {
+                            currentCoroutineContext().ensureActive()
+                            val n = input.read(buffer)
+                            if (n < 0) break
+                            copied += n
+                            state[0] += n
+                            check(state[0] <= spec.maxExpandedBytes) { "解压模型内容超过安全上限" }
+                            sink.write(buffer, 0, n)
+                        }
+                        sink.fd.sync()
+                        if (expected > 0) check(copied == expected) {
+                            "已解压模型文件复制不完整：" + name
+                        }
+                    }
+                }
+                report(Progress(state[0], spec.estimatedExpandedBytes, "导入文件夹 · " + name))
+            }
         }
     }
 
@@ -334,24 +415,31 @@ class VoskArchiveInstaller(
                 }
             }
             check(isValidVoskDirectory(staging)) { "模型缺少声学文件、配置或解码图" }
-            // Old model, if any, is preserved until the new one is fully extracted and checked.
-            if (destination.exists()) {
-                Files.move(destination.toPath(), previous.toPath(), StandardCopyOption.ATOMIC_MOVE)
-            }
-            try {
-                Files.move(staging.toPath(), destination.toPath(), StandardCopyOption.ATOMIC_MOVE)
-            } catch (failure: Exception) {
-                if (previous.exists()) Files.move(previous.toPath(), destination.toPath(), StandardCopyOption.ATOMIC_MOVE)
-                throw failure
-            }
-            previous.deleteRecursively()
+            promoteStaging()
             archive.delete()
             partialOrigin.delete()
-            AppSettings.notifyModelsChanged()
             report(Progress(spec.archiveBytes, spec.archiveBytes, "已安装 · 返回主页自动切换"))
         } finally {
             if (staging.exists()) staging.deleteRecursively()
         }
+    }
+
+    /** Replace the installed model only after complete verification, with rollback. */
+    private suspend fun promoteStaging() {
+        currentCoroutineContext().ensureActive()
+        check(!previous.exists()) { "已有安装备份，防止覆盖已有模型" }
+        if (destination.exists()) {
+            Files.move(destination.toPath(), previous.toPath(), StandardCopyOption.ATOMIC_MOVE)
+        }
+        try {
+            Files.move(staging.toPath(), destination.toPath(), StandardCopyOption.ATOMIC_MOVE)
+        } catch (failure: Exception) {
+            if (previous.exists())
+                Files.move(previous.toPath(), destination.toPath(), StandardCopyOption.ATOMIC_MOVE)
+            throw failure
+        }
+        previous.deleteRecursively()
+        AppSettings.notifyModelsChanged()
     }
 
     fun isValidVoskDirectory(root: File): Boolean {
