@@ -12,6 +12,9 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.AppCompatRadioButton
 import com.bohanli.ruzhtranslator.R
+import com.bohanli.ruzhtranslator.asr.VoskModelCatalog
+import com.bohanli.ruzhtranslator.asr.VoskArchiveInstaller
+import com.bohanli.ruzhtranslator.core.ModelManager
 import com.bohanli.ruzhtranslator.core.ModelCatalog
 import com.bohanli.ruzhtranslator.core.ModelDownloader
 import com.bohanli.ruzhtranslator.databinding.ActivitySettingsBinding
@@ -29,6 +32,11 @@ class SettingsActivity : AppCompatActivity() {
     private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val sourceKeys = listOf(AppSettings.SOURCE_AUTO, AppSettings.SOURCE_MODELSCOPE,
         AppSettings.SOURCE_HF_MIRROR, AppSettings.SOURCE_CN_PROXY, AppSettings.SOURCE_HF, AppSettings.SOURCE_CUSTOM)
+    private val asrSourceKeys = listOf(VoskModelCatalog.SOURCE_AUTO, VoskModelCatalog.SOURCE_DOMESTIC,
+        VoskModelCatalog.SOURCE_OFFICIAL, VoskModelCatalog.SOURCE_CUSTOM)
+    private var renderedAsr = AppSettings.ASR_MODEL_SMALL
+    private var asrDownloading = false
+    private var pendingImportAsr = AppSettings.ASR_MODEL_SMALL
     private val customUrls by lazy { getSharedPreferences("model_custom_urls", MODE_PRIVATE) }
     private var rendering = false
     private var busy = false
@@ -43,10 +51,17 @@ class SettingsActivity : AppCompatActivity() {
             startModelOperation { installer.importFrom(uri, ::showProgress) }
         }
     }
+    private val importAsrArchive = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri != null) {
+            val installer = VoskArchiveInstaller(this, VoskModelCatalog.model(pendingImportAsr))
+            startAsrOperation { installer.importZip(uri, ::showAsrProgress) }
+        }
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AppSettings.init(this)
         pendingImportEngine = savedInstanceState?.getString("import_engine") ?: AppSettings.translationEngine
+        pendingImportAsr = savedInstanceState?.getString("import_asr") ?: AppSettings.asrModel
         binding = ActivitySettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)
         // Extend the existing settings card; no replacement of the speech/subtitle UI.
@@ -61,11 +76,49 @@ class SettingsActivity : AppCompatActivity() {
         binding.radioTranslationEngine.addView(hyMtButton,
             RadioGroup.LayoutParams(RadioGroup.LayoutParams.MATCH_PARENT, RadioGroup.LayoutParams.WRAP_CONTENT))
         binding.btnBack.setOnClickListener { finish() }
-        binding.tvVersion.text = "v3.6-alpha · 国内源 / 分块续传 · Gemma 4 / LMT / HY-MT2"
+        binding.tvVersion.text = "v3.7-alpha · Vosk Small/Large 下载 · Gemma 4 / LMT / HY-MT2"
         binding.radioAsrModel.check(if (AppSettings.asrModel == AppSettings.ASR_MODEL_LARGE)
             binding.rbAsrLarge.id else binding.rbAsrSmall.id)
         binding.radioAsrModel.setOnCheckedChangeListener { _, id ->
+            if (busy) return@setOnCheckedChangeListener
+            customUrls.edit().putString("vosk:" + renderedAsr, binding.etAsrUrl.text.toString()).apply()
             AppSettings.asrModel = if (id == binding.rbAsrLarge.id) AppSettings.ASR_MODEL_LARGE else AppSettings.ASR_MODEL_SMALL
+            refreshAsrUi()
+        }
+        binding.spinnerAsrSource.adapter = ArrayAdapter(this, R.layout.spinner_item,
+            arrayOf("自动 · 国内 HF Mirror 优先（Small）", "国内镜像优先（Large 暂无核验镜像）",
+                "Vosk 官方下载", "自定义 HTTPS ZIP 直链"))
+            .also { it.setDropDownViewResource(R.layout.spinner_dropdown_item) }
+        binding.spinnerAsrSource.setSelection(asrSourceKeys.indexOf(AppSettings.asrSource).coerceAtLeast(0))
+        binding.spinnerAsrSource.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                AppSettings.asrSource = asrSourceKeys[position]
+                refreshAsrSource()
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+        binding.btnDownloadAsr.setOnClickListener {
+            val spec = VoskModelCatalog.model(AppSettings.asrModel)
+            val url = binding.etAsrUrl.text.toString()
+            val urls = try { VoskModelCatalog.urls(spec, AppSettings.asrSource, url) }
+                catch (e: IllegalArgumentException) { toast(e.message ?: "请检查 Vosk 下载源"); return@setOnClickListener }
+            customUrls.edit().putString("vosk:" + spec.id, url).apply()
+            startAsrOperation(isDownload = true) {
+                VoskArchiveInstaller(this, spec).download(urls, ::showAsrProgress)
+            }
+        }
+        binding.btnPauseAsr.setOnClickListener { operationJob?.cancel() }
+        binding.btnImportAsr.setOnClickListener {
+            pendingImportAsr = AppSettings.asrModel
+            importAsrArchive.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
+        }
+        binding.btnRemoveAsr.setOnClickListener {
+            val spec = VoskModelCatalog.model(AppSettings.asrModel)
+            AlertDialog.Builder(this).setTitle("删除 " + spec.title + "？")
+                .setMessage("仅删除应用内下载的该 Vosk 模型和断点，不删除外部手动导入目录或翻译历史。")
+                .setNegativeButton("取消", null).setPositiveButton("删除") { _, _ ->
+                    startAsrOperation { VoskArchiveInstaller(this, spec).remove() }
+                }.show()
         }
         binding.radioTranslationEngine.setOnCheckedChangeListener { _, id ->
             if (!rendering && !busy) {
@@ -134,6 +187,54 @@ class SettingsActivity : AppCompatActivity() {
                 }.show()
         }
         refreshModelUi()
+        refreshAsrUi()
+    }
+
+    private fun refreshAsrSource() {
+        val custom = AppSettings.asrSource == VoskModelCatalog.SOURCE_CUSTOM
+        binding.etAsrUrl.visibility = if (custom) View.VISIBLE else View.GONE
+        val large = AppSettings.asrModel == AppSettings.ASR_MODEL_LARGE
+        binding.tvAsrHint.text = if (large)
+            "Large 官方 ZIP 约 1.84 GB，解压后约 3.7 GB；Vosk 官方提示可能占用高达 16 GB 内存，不推荐手机实时使用。暂未核验 ModelScope 同文件镜像；使用官方 HTTPS 或自填直链。Large 没有已确认的发布方 SHA-256，使用 ZIP CRC、文件大小及模型结构校验。"
+        else "Small 已核验 HF Mirror 对应的 HF 文件及 SHA-256；自动模式优先国内 HF Mirror，失败切换官方来源。支持暂停、续传、ZIP CRC 与结构校验。"
+    }
+    private fun refreshAsrUi() {
+        val spec = VoskModelCatalog.model(AppSettings.asrModel)
+        renderedAsr = spec.id
+        binding.etAsrUrl.setText(customUrls.getString("vosk:" + spec.id, ""))
+        refreshAsrSource()
+        binding.btnDownloadAsr.text = "下载 / 继续下载 " + spec.title
+        val own = VoskArchiveInstaller(this, spec).installed()
+        val legacy = if (!own) ModelManager.getModelDir(this, spec.id) != null else false
+        binding.tvAsrStatus.text = when {
+            own -> "已安装至应用专属目录 · 返回主界面自动加载"
+            legacy -> "发现已有手动安装的模型 · 返回主界面可使用"
+            else -> "未安装 · 点击上方按钮下载 " + spec.archiveName
+        }
+    }
+
+    private fun startAsrOperation(isDownload: Boolean = false, action: suspend () -> Unit) {
+        if (busy) return
+        asrDownloading = isDownload
+        setBusy(true)
+        operationJob = uiScope.launch {
+            try { action(); refreshAsrUi() }
+            catch (e: CancellationException) {
+                if (isDownload && !isDestroyed) binding.tvAsrStatus.text =
+                    "已暂停 · 断点已保存，下次点击继续下载"
+                throw e
+            }
+            catch (e: Exception) { binding.tvAsrStatus.text = "Vosk 操作失败：" + e.message }
+            finally { asrDownloading = false; setBusy(false) }
+        }
+    }
+    private fun showAsrProgress(p: VoskArchiveInstaller.Progress) = runOnUiThread {
+        if (!isDestroyed && !isFinishing) {
+            val ratio = if (p.total > 0) (p.bytes * 100 / p.total).toInt().coerceIn(0, 100) else 0
+            binding.progressAsr.progress = ratio
+            binding.tvAsrStatus.text = p.stage + " · " + (p.bytes / 1024 / 1024) + " MiB" +
+                if (p.total > 0) " · " + ratio + "%" else ""
+        }
     }
     private fun refreshModelUi() {
         rendering = true
@@ -205,15 +306,20 @@ class SettingsActivity : AppCompatActivity() {
         busy = value
         listOf(binding.btnDownloadModel, binding.btnImportModel, binding.btnRemoveModel,
             binding.spinnerModelSource, binding.etModelUrl, binding.rbGemma4, binding.rbLmt, hyMtButton,
-            binding.rbAsrSmall, binding.rbAsrLarge).forEach { it.isEnabled = !value }
+            binding.rbAsrSmall, binding.rbAsrLarge, binding.spinnerAsrSource,
+            binding.etAsrUrl, binding.btnDownloadAsr, binding.btnImportAsr, binding.btnRemoveAsr
+            ).forEach { it.isEnabled = !value }
         val canChooseDevice = !value && AppSettings.translationEngine == AppSettings.ENGINE_GEMMA4
         listOf(binding.rbBackendCpu, binding.rbBackendAuto, binding.rbBackendGpu).forEach { it.isEnabled = canChooseDevice }
         binding.progressModel.visibility = if (value) View.VISIBLE else View.GONE
         binding.btnPauseModel.visibility = if (value && downloading) View.VISIBLE else View.GONE
+        binding.progressAsr.visibility = if (value && asrDownloading) View.VISIBLE else View.GONE
+        binding.btnPauseAsr.visibility = if (value && asrDownloading) View.VISIBLE else View.GONE
     }
     private fun toast(message: String) { Toast.makeText(this, message, Toast.LENGTH_SHORT).show() }
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString("import_engine", pendingImportEngine)
+        outState.putString("import_asr", pendingImportAsr)
         super.onSaveInstanceState(outState)
     }
     override fun onDestroy() { uiScope.cancel(); super.onDestroy() }
