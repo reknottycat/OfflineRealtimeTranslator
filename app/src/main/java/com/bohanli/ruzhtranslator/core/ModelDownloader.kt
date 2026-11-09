@@ -39,7 +39,16 @@ class ModelDownloader(private val context: Context) {
         val target = File(dir, ModelCatalog.GEMMA4_FILE)
         val partial = File(dir, "${ModelCatalog.GEMMA4_FILE}.part")
         var offset = partial.takeIf { it.exists() }?.length() ?: 0L
-        if (offset > ModelCatalog.GEMMA4_BYTES) {
+        if (offset == ModelCatalog.GEMMA4_BYTES) {
+            if (verify(partial, progress)) {
+                if (target.exists()) target.delete()
+                check(partial.renameTo(target)) { "Cannot finalize downloaded model" }
+                progress(Progress(target.length(), ModelCatalog.GEMMA4_BYTES, "已完成"))
+                return@withContext
+            }
+            partial.delete() // A complete but corrupt partial must not yield endless HTTP 416.
+            offset = 0L
+        } else if (offset > ModelCatalog.GEMMA4_BYTES) {
             partial.delete()
             offset = 0L
         }
@@ -105,7 +114,10 @@ class ModelDownloader(private val context: Context) {
         } finally {
             conn.disconnect()
         }
-        check(verify(partial, progress)) { "SHA-256 mismatch; model discarded" }
+        if (!verify(partial, progress)) {
+            partial.delete()
+            error("SHA-256 mismatch; corrupt model deleted")
+        }
         check(partial.renameTo(target)) { "Failed to finalize model file" }
         progress(Progress(target.length(), ModelCatalog.GEMMA4_BYTES, "已完成"))
     }
