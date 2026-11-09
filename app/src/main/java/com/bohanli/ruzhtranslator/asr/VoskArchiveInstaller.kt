@@ -93,7 +93,7 @@ class VoskArchiveInstaller(
     suspend fun importZip(uri: Uri, report: (Progress) -> Unit) = withContext(Dispatchers.IO) {
         modelLock.withLock {
             makeDirectories()
-            ensureSpace()
+            ensureSpace(forNewArchive = true)
             importFile.delete()
             try {
                 app.contentResolver.openInputStream(uri).use { input ->
@@ -106,14 +106,19 @@ class VoskArchiveInstaller(
                             val n = input.read(buffer)
                             if (n < 0) break
                             total += n
-                            require(total <= spec.archiveBytes) { "文件超出所选模型的固定大小" }
+                            require(total <= spec.archiveBytes) {
+                                "导入文件过大，不是所选 Vosk ZIP。官方 Large ZIP 约 1.84 GB，原仓库约 3.5 GB 是已解压文件夹，请点击「导入已解压 Vosk 文件夹」"
+                            }
                             output.write(buffer, 0, n)
                             report(Progress(total, spec.archiveBytes, "导入 Vosk ZIP"))
                         }
                         output.fd.sync()
                     }
                 }
-                check(verifyArchive(importFile, report)) { "ZIP 大小或校验不符：请选择正确的 Small/Large 模型压缩包" }
+                check(verifyArchive(importFile, report)) {
+                    "ZIP 文件校验不符：需要准确的 " + spec.archiveName +
+                        "（压缩包 " + spec.archiveBytes + " 字节）。已解压模型请选择「导入文件夹」"
+                }
                 unpackAndInstall(importFile, report)
             } finally { importFile.delete() }
         }
@@ -216,8 +221,9 @@ class VoskArchiveInstaller(
             (workDir.isDirectory || workDir.mkdirs())) { "无法创建模型目录" }
     }
 
-    private fun ensureSpace() {
-        val remainder = (spec.archiveBytes - partial.length()).coerceAtLeast(0)
+    private fun ensureSpace(forNewArchive: Boolean = false) {
+        val remainder = if (forNewArchive) spec.archiveBytes
+            else (spec.archiveBytes - partial.length()).coerceAtLeast(0)
         val minimum = remainder + spec.estimatedExpandedBytes + 64L * 1024 * 1024
         check(workDir.usableSpace >= minimum) {
             "存储空间不足：下载、解压该模型至少还需要约 " +
