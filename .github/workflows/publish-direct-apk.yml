@@ -22,14 +22,17 @@ jobs:
           if gh release download v3.5-alpha-hymt2 -R "$GITHUB_REPOSITORY" \
               --pattern "OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-v3.5-debug.apk" \
               --dir "$RUNNER_TEMP/apk-payload"; then
-            test "$(sha256sum "$RUNNER_TEMP/apk-payload/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-v3.5-debug.apk" | cut -d' ' -f1)" = "07cc52307628432dcfbb6c9363b86b48ae716b56ddbdfa444029ecacc62d5012"
+            EXPECTED="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/v3.5-alpha-hymt2" --jq '.assets[] | select(.name=="OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-v3.5-debug.apk") | .digest')"
+            ACTUAL="sha256:$(sha256sum "$RUNNER_TEMP/apk-payload/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-v3.5-debug.apk" | cut -d' ' -f1)"
+            echo "Release checksum: expected=$EXPECTED actual=$ACTUAL"
+            test "$ACTUAL" = "$EXPECTED"
           else
             echo "Release asset unavailable; recovering already validated APK from CI artifact"
             gh run download 42625877565 -R "$GITHUB_REPOSITORY" \
               -n OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug \
               -D "$RUNNER_TEMP/apk-payload"
             cd "$RUNNER_TEMP/apk-payload"
-            sha256sum -c SHA256SUMS.txt
+            sed 's#^dist/##' SHA256SUMS.txt | sha256sum -c -
             mv OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-v3.5-debug.apk
           fi
           test "$(stat -c%s "$RUNNER_TEMP/apk-payload/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-v3.5-debug.apk")" -gt 50000000
