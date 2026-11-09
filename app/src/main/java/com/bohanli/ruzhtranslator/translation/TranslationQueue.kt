@@ -38,6 +38,8 @@ class TranslationQueue(
 
     // Generation counter: incremented on clear(), results from old generations are discarded
     private val generation = AtomicInteger(0)
+    // Includes queued and in-flight work; used to avoid discarding unsaved subtitles.
+    private val outstanding = AtomicInteger(0)
 
     // Pause support: consumer waits on resumeSignal when paused
     private val paused = AtomicBoolean(false)
@@ -72,12 +74,19 @@ class TranslationQueue(
 
                 translator.onStreamToken = { token ->
                     if (generation.get() == currentGen) {
-                        scope.launch(Dispatchers.Main) { onStreamToken(token) }
+                        scope.launch(Dispatchers.Main) {
+                            if (generation.get() == currentGen) onStreamToken(token)
+                        }
                     }
                 }
 
-                var result = withContext(Dispatchers.IO) {
-                    translator.translate(text)
+                var result = try {
+                    withContext(Dispatchers.IO) { translator.translate(text) }
+                } catch (failure: kotlinx.coroutines.CancellationException) {
+                    throw failure
+                } catch (failure: Exception) {
+                    Log.e(TAG, "Translation failed; preserving original ASR segment", failure)
+                    "[翻译失败，请在历史记录中核对俄文原文]"
                 }
 
                 translator.onStreamToken = null
@@ -111,8 +120,12 @@ class TranslationQueue(
                 if (generation.get() == currentGen) {
                     Log.i(TAG, "Result: ${result.take(60)}")
                     withContext(Dispatchers.Main) {
-                        onBusyChanged(false)
-                        onResult(result)
+                        try {
+                            onResult(result)
+                        } finally {
+                            outstanding.updateAndGet { (it - 1).coerceAtLeast(0) }
+                            onBusyChanged(false)
+                        }
                     }
                 } else {
                     Log.i(TAG, "Discarding stale result (gen $currentGen, now ${generation.get()})")
@@ -125,15 +138,21 @@ class TranslationQueue(
     /** Submit a Russian segment for translation. Non-blocking. */
     fun submit(text: String) {
         if (text.isBlank()) return
+        outstanding.incrementAndGet()
         val offered = channel.trySend(generation.get() to text)
         if (offered.isFailure) {
+            outstanding.updateAndGet { (it - 1).coerceAtLeast(0) }
             Log.e(TAG, "Channel send failed (should not happen with UNLIMITED capacity)")
         }
     }
 
+    /** Pending ASR-derived translations, including the currently running one. */
+    fun hasPending(): Boolean = outstanding.get() > 0
+
     /** Clear pending translations. In-flight translation result will be discarded. */
     fun clear() {
         generation.incrementAndGet()
+        outstanding.set(0)
         // Drain the channel
         while (channel.tryReceive().isSuccess) { /* discard */ }
         Log.i(TAG, "Queue cleared, generation=${generation.get()}")
