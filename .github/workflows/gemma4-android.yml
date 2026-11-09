@@ -37,9 +37,10 @@ jobs:
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-Vosk-v3.7-debug.apk
+          cp app/build/outputs/apk/debug/app-debug.apk dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs dist/*.apk > dist/apk-signature.txt
           python3 scripts/ci_lmt_report.py
+          mv dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-Vosk-v3.7-debug.apk
           sha256sum dist/*.apk > dist/SHA256SUMS.txt
       - name: APK download
         uses: actions/upload-artifact@v4
