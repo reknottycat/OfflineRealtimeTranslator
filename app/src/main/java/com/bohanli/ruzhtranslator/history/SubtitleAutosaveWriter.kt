@@ -3,6 +3,7 @@ package com.bohanli.ruzhtranslator.history
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -19,11 +20,28 @@ import kotlinx.coroutines.withContext
  * not delete the saved row or wait on Android's UI thread.
  */
 class SubtitleAutosaveWriter(
-    private val dao: TranslationDao,
+    private val store: Store,
     private val onSaved: (Long) -> Unit = {},
-    private val onFailure: (Throwable) -> Unit = {}
+    private val onFailure: (Throwable) -> Unit = {},
+    private val callbackDispatcher: CoroutineDispatcher = Dispatchers.Main
 ) {
     data class Snapshot(val russian: String, val chinese: String)
+
+    interface Store {
+        suspend fun insert(russian: String, chinese: String): Long
+        suspend fun update(id: Long, russian: String, chinese: String)
+    }
+
+    constructor(
+        dao: TranslationDao,
+        onSaved: (Long) -> Unit = {},
+        onFailure: (Throwable) -> Unit = {}
+    ) : this(object : Store {
+        override suspend fun insert(russian: String, chinese: String): Long =
+            dao.insert(TranslationRecord(ruText = russian, zhText = chinese))
+        override suspend fun update(id: Long, russian: String, chinese: String) =
+            dao.updateSubtitleText(id.toInt(), russian, chinese)
+    }, onSaved, onFailure, Dispatchers.Main)
     private val snapshots = Channel<Snapshot>(Channel.UNLIMITED)
     private val scope = CoroutineScope(Dispatchers.IO)
     private var previousQueued: Snapshot? = null
@@ -38,16 +56,15 @@ class SubtitleAutosaveWriter(
                 try {
                     val id = rowId
                     if (id == null) {
-                        rowId = dao.insert(TranslationRecord(
-                            ruText = snapshot.russian, zhText = snapshot.chinese))
+                        rowId = store.insert(snapshot.russian, snapshot.chinese)
                     } else {
-                        dao.updateSubtitleText(id.toInt(), snapshot.russian, snapshot.chinese)
+                        store.update(id, snapshot.russian, snapshot.chinese)
                     }
                     previousSaved = snapshot
-                    withContext(Dispatchers.Main) { onSaved(rowId ?: 0L) }
+                    withContext(callbackDispatcher) { onSaved(rowId ?: 0L) }
                 } catch (error: Exception) {
                     Log.e("SubtitleAutosave", "Subtitle persistence failed", error)
-                    withContext(Dispatchers.Main) { onFailure(error) }
+                    withContext(callbackDispatcher) { onFailure(error) }
                 }
             }
         }
