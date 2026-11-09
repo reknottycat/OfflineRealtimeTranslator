@@ -1,0 +1,43 @@
+name: Promote verified v3.8 subtitle APK to direct download branch
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/promote-tested-subtitles-v3.8.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  promote:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch exact CI-tested APK and assert SHA-256 provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/v38"
+          gh run download 42691531386 \
+            -R "$GITHUB_REPOSITORY" \
+            -n OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-Vosk-v3.7-debug \
+            -D "$RUNNER_TEMP/v38"
+          SOURCE="$RUNNER_TEMP/v38/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-Vosk-v3.7-debug.apk"
+          test -f "$SOURCE"
+          echo "53cfd1d4b1e3a2a835e46989a6e4548e90683ff93aedab781cac32e44a0be455  $SOURCE" | sha256sum -c -
+          unzip -t "$SOURCE" >/dev/null
+          cp "$SOURCE" "$RUNNER_TEMP/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-Vosk-Autosave-v3.8-debug.apk"
+      - name: Publish tested binary to GitHub download branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin apk-downloads:refs/remotes/origin/apk-downloads
+          git checkout -B apk-downloads refs/remotes/origin/apk-downloads
+          NAME=OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-Vosk-Autosave-v3.8-debug.apk
+          cp "$RUNNER_TEMP/$NAME" "$NAME"
+          sha256sum "$NAME" > Autosave-v3.8-SHA256SUMS.txt
+          git add "$NAME" Autosave-v3.8-SHA256SUMS.txt
+          git commit -m "release: promote v3.8 tested CI artifact 42691531386"
+          git push origin HEAD:refs/heads/apk-downloads
