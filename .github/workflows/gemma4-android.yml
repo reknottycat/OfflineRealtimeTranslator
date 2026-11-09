@@ -1,4 +1,4 @@
-name: Gemma4 + LMT + HY-MT2 + Vosk Android APK
+name: Gemma4 + LMT + HY-MT2 + Vosk + GigaAM Android APK
 on:
   pull_request:
   workflow_dispatch:
@@ -28,6 +28,8 @@ jobs:
           test -x "$SDKMGR"
           "$SDKMGR" --install "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358" "cmake;3.22.1"
       - uses: gradle/actions/setup-gradle@v4
+      - name: Get and verify official sherpa-onnx v2.0.1 Android AAR
+        run: python3 scripts/setup_sherpa_aar.py
       - name: Unit tests, lint and ARM64 APK
         run: |
           chmod +x gradlew
@@ -40,14 +42,15 @@ jobs:
           cp app/build/outputs/apk/debug/app-debug.apk dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs dist/*.apk > dist/apk-signature.txt
           python3 scripts/ci_lmt_report.py
-          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk | grep "name='com.bohanli.ruzhtranslator.preview'"
-          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk | grep "versionName='3.9-alpha-vosk-fix'"
-          mv dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-Vosk-Fix-v3.9-preview.apk
+          unzip -l dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk | grep 'lib/arm64-v8a/libsherpa-onnx-jni.so'
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk | grep "name='com.bohanli.ruzhtranslator.preview.gigaam'"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk | grep "versionName='4.0-alpha-gigaam'"
+          mv dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-GigaAM-v4.0-preview.apk
           sha256sum dist/*.apk > dist/SHA256SUMS.txt
       - name: APK download
         uses: actions/upload-artifact@v4
         with:
-          name: OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-Vosk-Fix-v3.9-preview
+          name: OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-GigaAM-v4.0-preview
           path: dist/
           if-no-files-found: error
           retention-days: 30
