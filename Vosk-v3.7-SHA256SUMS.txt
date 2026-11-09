@@ -1,0 +1,1 @@
+cd72790fb7a0bd3031272f02233de858fd9bd46eb5ca1b9e3f19ffe50effc7e4  OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-Vosk-v3.7-debug.apk
