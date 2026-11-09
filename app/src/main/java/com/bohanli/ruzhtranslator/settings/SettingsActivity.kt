@@ -13,6 +13,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.AppCompatRadioButton
 import com.bohanli.ruzhtranslator.R
 import com.bohanli.ruzhtranslator.asr.VoskModelCatalog
+import com.bohanli.ruzhtranslator.asr.GigaAmCatalog
 import com.bohanli.ruzhtranslator.asr.VoskArchiveInstaller
 import com.bohanli.ruzhtranslator.core.ModelManager
 import com.bohanli.ruzhtranslator.core.ModelCatalog
@@ -84,18 +85,25 @@ class SettingsActivity : AppCompatActivity() {
         binding.radioTranslationEngine.addView(hyMtButton,
             RadioGroup.LayoutParams(RadioGroup.LayoutParams.MATCH_PARENT, RadioGroup.LayoutParams.WRAP_CONTENT))
         binding.btnBack.setOnClickListener { finish() }
-        binding.tvVersion.text = "v3.9-alpha · 原版并行安装 · Vosk ZIP/已解压文件夹 · 翻译三引擎"
-        binding.radioAsrModel.check(if (AppSettings.asrModel == AppSettings.ASR_MODEL_LARGE)
-            binding.rbAsrLarge.id else binding.rbAsrSmall.id)
+        binding.tvVersion.text = "v4.0-alpha · Vosk / GigaAM v2 俄语识别 · 三翻译引擎"
+        binding.radioAsrModel.check(when (AppSettings.asrModel) {
+            AppSettings.ASR_MODEL_GIGAAM -> binding.rbAsrGigaam.id
+            AppSettings.ASR_MODEL_LARGE -> binding.rbAsrLarge.id
+            else -> binding.rbAsrSmall.id
+        })
         binding.radioAsrModel.setOnCheckedChangeListener { _, id ->
             if (busy) return@setOnCheckedChangeListener
             customUrls.edit().putString("vosk:" + renderedAsr, binding.etAsrUrl.text.toString()).apply()
-            AppSettings.asrModel = if (id == binding.rbAsrLarge.id) AppSettings.ASR_MODEL_LARGE else AppSettings.ASR_MODEL_SMALL
+            AppSettings.asrModel = when (id) {
+                binding.rbAsrGigaam.id -> AppSettings.ASR_MODEL_GIGAAM
+                binding.rbAsrLarge.id -> AppSettings.ASR_MODEL_LARGE
+                else -> AppSettings.ASR_MODEL_SMALL
+            }
             refreshAsrUi()
         }
         binding.spinnerAsrSource.adapter = ArrayAdapter(this, R.layout.spinner_item,
-            arrayOf("自动 · 国内 HF Mirror 优先（Small）", "国内镜像优先（Large 暂无核验镜像）",
-                "Vosk 官方下载", "自定义 HTTPS ZIP 直链"))
+            arrayOf("自动 · 国内 HF Mirror 优先（Small/GigaAM）", "国内镜像优先（Large 只使用官方）",
+                "模型官方源优先", "自定义 HTTPS ZIP / ONNX 直链"))
             .also { it.setDropDownViewResource(R.layout.spinner_dropdown_item) }
         binding.spinnerAsrSource.setSelection(asrSourceKeys.indexOf(AppSettings.asrSource).coerceAtLeast(0))
         binding.spinnerAsrSource.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
