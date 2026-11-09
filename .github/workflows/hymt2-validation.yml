@@ -1,0 +1,54 @@
+name: HY-MT2 validation
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: hymt2-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  model-contract:
+    if: github.head_ref == 'feat/hymt2-engine' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+          persist-credentials: false
+      - name: Source snapshot (no credentials, binaries or weights)
+        run: |
+          mkdir -p "$RUNNER_TEMP/hymt-context"
+          git archive --format=tar.gz HEAD -o "$RUNNER_TEMP/hymt-context/source.tar.gz"
+      - name: Inspect official model contract
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib, urllib.request
+          out = pathlib.Path(os.environ['RUNNER_TEMP']) / 'hymt-context'
+          urls = {
+            'hf-model-info.json': 'https://huggingface.co/api/models/tencent/Hy-MT2-1.8B-GGUF?blobs=true',
+            'tokenizer_config.json': 'https://huggingface.co/tencent/Hy-MT2-1.8B/resolve/main/tokenizer_config.json',
+            'config.json': 'https://huggingface.co/tencent/Hy-MT2-1.8B/resolve/main/config.json',
+            'modelscope-files.json': 'https://modelscope.cn/api/v1/models/tencent/Hy-MT2-1.8B-GGUF/repo/files?Revision=master&Recursive=true'
+          }
+          status = {}
+          for name, url in urls.items():
+            try:
+              with urllib.request.urlopen(url, timeout=60) as r:
+                data = r.read()
+              (out / name).write_bytes(data)
+              status[name] = {'url': url, 'bytes': len(data), 'ok': True}
+            except Exception as e:
+              status[name] = {'url': url, 'ok': False, 'error': str(e)}
+          (out/'fetch-status.json').write_text(json.dumps(status, indent=2))
+          print(json.dumps(status, indent=2))
+          if not status['hf-model-info.json']['ok']:
+            raise SystemExit('Official HF metadata unavailable; no model hash will be guessed')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hymt2-contract-context
+          path: ${{ runner.temp }}/hymt-context
+          retention-days: 14
