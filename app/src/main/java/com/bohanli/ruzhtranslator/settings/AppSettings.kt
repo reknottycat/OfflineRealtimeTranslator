@@ -15,6 +15,7 @@ object AppSettings {
     private const val KEY_TRANSLATION_ENGINE = "translation_engine"
     private const val KEY_INFERENCE_BACKEND = "inference_backend"
     private const val KEY_MODEL_SOURCE = "model_source"
+    private const val KEY_MODEL_GENERATION = "model_generation"
 
     const val ASR_MODEL_SMALL = "vosk-model-small-ru-0.22"
     const val ASR_MODEL_LARGE = "vosk-model-ru-0.42"
@@ -68,4 +69,10 @@ object AppSettings {
     var modelSource: String
         get() = prefs?.getString(KEY_MODEL_SOURCE, SOURCE_HF) ?: SOURCE_HF
         set(value) { prefs?.edit()?.putString(KEY_MODEL_SOURCE, value)?.apply() }
+    /** Revision counter for installed model files. Lets MainActivity safely reload after setup. */
+    var modelGeneration: Int
+        get() = prefs?.getInt(KEY_MODEL_GENERATION, 0) ?: 0
+        set(value) { prefs?.edit()?.putInt(KEY_MODEL_GENERATION, value)?.apply() }
+
+    fun notifyModelsChanged() { modelGeneration += 1 }
 }
