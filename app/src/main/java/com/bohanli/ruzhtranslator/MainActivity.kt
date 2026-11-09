@@ -87,6 +87,7 @@ class MainActivity : AppCompatActivity() {
     private var currentAsrModel = AppSettings.ASR_MODEL_SMALL
     private var currentTranslationEngine = AppSettings.ENGINE_GEMMA4
     private var currentInferenceBackend = AppSettings.BACKEND_AUTO
+    private var currentModelGeneration = 0
 
     // Guard so rapid Settings toggles don't stack parallel reloads
     private val asrSwitchInFlight = AtomicBoolean(false)
@@ -130,6 +131,7 @@ class MainActivity : AppCompatActivity() {
         currentAsrModel = AppSettings.asrModel
         currentTranslationEngine = AppSettings.translationEngine
         currentInferenceBackend = AppSettings.inferenceBackend
+        currentModelGeneration = AppSettings.modelGeneration
 
         setupUi()
         maybeLoadModels()
@@ -147,6 +149,13 @@ class MainActivity : AppCompatActivity() {
             (AppSettings.translationEngine != currentTranslationEngine ||
              AppSettings.inferenceBackend != currentInferenceBackend)) {
             // Restart cleanly instead of replacing an engine during an in-flight queue item.
+            recreate()
+            return
+        }
+        // Refresh model availability only when files actually changed in Settings;
+        // avoids a recreate loop when a model is missing or corrupt.
+        if (AppSettings.modelGeneration != currentModelGeneration) {
+            currentModelGeneration = AppSettings.modelGeneration
             recreate()
             return
         }
