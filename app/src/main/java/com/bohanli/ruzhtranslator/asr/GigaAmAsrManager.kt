@@ -66,7 +66,7 @@ class GigaAmAsrManager(
     private var decodeJob: Job? = null
     private var recognizer: OfflineRecognizer? = null
 
-    override suspend fun initialize() = withContext(Dispatchers.IO) {
+    override suspend fun initialize(): Unit = withContext(Dispatchers.IO) {
         try {
             val model = File(modelDirectory, GigaAmCatalog.MODEL_FILE)
             require(model.isFile && model.length() == GigaAmCatalog.MODEL_BYTES) {
@@ -101,6 +101,7 @@ class GigaAmAsrManager(
             }
             throw failure
         }
+        Unit
     }
 
     override fun hasPendingResults(): Boolean =
