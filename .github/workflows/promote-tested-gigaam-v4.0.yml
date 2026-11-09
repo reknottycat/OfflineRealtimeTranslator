@@ -1,0 +1,44 @@
+name: Publish CI-tested GigaAM v4 preview APK as direct GitHub download
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/promote-tested-gigaam-v4.0.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  promote:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve and verify exact CI-tested GigaAM APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/gigaam-v4"
+          gh run download 42719703272 -R "$GITHUB_REPOSITORY" \
+            -n OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-GigaAM-v4.0-preview \
+            -D "$RUNNER_TEMP/gigaam-v4"
+          cd "$RUNNER_TEMP/gigaam-v4"
+          NAME=OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-GigaAM-v4.0-preview.apk
+          test -s "$NAME"
+          printf '%s  %s\n' \
+            "033e05c8347ed4134940886199fda2a2b134dd11edbd186cd11a59f678dad01c" "$NAME" | sha256sum -c -
+          unzip -t "$NAME" >/dev/null
+      - name: Promote verified APK to permanent apk-downloads branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin apk-downloads:refs/remotes/origin/apk-downloads
+          git checkout -B apk-downloads refs/remotes/origin/apk-downloads
+          NAME=OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-GigaAM-v4.0-preview.apk
+          cp "$RUNNER_TEMP/gigaam-v4/$NAME" "$NAME"
+          sha256sum "$NAME" > GigaAM-v4.0-SHA256SUMS.txt
+          git add "$NAME" GigaAM-v4.0-SHA256SUMS.txt
+          git commit -m "release: promote CI-tested GigaAM Russian v4 preview APK from run 42719703272"
+          git push origin HEAD:refs/heads/apk-downloads
