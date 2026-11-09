@@ -1,119 +1,184 @@
 package com.bohanli.ruzhtranslator.translation
 
 import android.util.Log
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import com.bohanli.ruzhtranslator.core.ModelCatalog
+import com.bohanli.ruzhtranslator.settings.AppSettings
+import com.google.ai.edge.litertlm.Backend
+import com.google.ai.edge.litertlm.Contents
+import com.google.ai.edge.litertlm.ConversationConfig
+import com.google.ai.edge.litertlm.Engine
+import com.google.ai.edge.litertlm.EngineConfig
+import com.google.ai.edge.litertlm.SamplerConfig
 import java.io.File
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 /**
- * Kotlin wrapper around the llama.cpp JNI bridge for Gemma 3 4B-IT.
- * Translates Russian text to Simplified Chinese using prompt-based generation.
+ * Compatibility facade for Vosk/TranslationQueue/metrics.
+ * Engine choice is immutable per instance: Gemma4/LiteRT-LM OR LMT/llama.cpp.
+ * A global lease prevents two translation weight sets from being resident together.
  */
-class GemmaTranslator {
-
+class GemmaTranslator(
+    val engineId: String = AppSettings.translationEngine,
+    private val backendPreference: String = AppSettings.inferenceBackend
+) {
     companion object {
-        private const val TAG = "GemmaTranslator"
-
-        init {
-            try {
-                System.loadLibrary("translator")
-                Log.i(TAG, "Native translator library loaded")
-            } catch (e: UnsatisfiedLinkError) {
-                Log.e(TAG, "Failed to load native translator library: ${e.message}")
-            }
-        }
+        private const val TAG = "OfflineTranslator"
+        const val MODEL_FILE = ModelCatalog.GEMMA4_FILE
+        private val runtimeLease = Mutex()
+        private const val INSTRUCTION = "You are a professional simultaneous interpreter. Translate Russian into accurate Simplified Chinese. Preserve numbers, names, technical terms and negations. Output only the translation."
     }
-
-    @Volatile private var nativeHandle: Long = 0L
+    private val spec = ModelCatalog.forEngine(engineId)
+    private val dispatcher = Executors.newSingleThreadExecutor { task ->
+        Thread(task, "translator-$engineId").apply { isDaemon = true }
+    }.asCoroutineDispatcher()
+    private val cleanupScope = CoroutineScope(SupervisorJob() + dispatcher)
+    // A single dispatcher alone does NOT serialize suspended Flow collection with close().
+    private val operation = Mutex()
+    private val closed = AtomicBoolean(false)
+    private var ownsLease = false
+    private var gemma: Engine? = null
+    @Volatile private var lmt: LmtNativeEngine? = null
+    private var path: String? = null
+    private var actualBackend = AppSettings.BACKEND_CPU
+    @Volatile private var ready = false
     @Volatile var onStreamToken: ((String) -> Unit)? = null
 
-    private external fun nativeCreate(modelPath: String): Long
-    private external fun nativeTranslate(handle: Long, text: String): String
-    private external fun nativeIsAvailable(handle: Long): Boolean
-    private external fun nativeDestroy(handle: Long)
-    private external fun nativeLastPromptMs(handle: Long): Long
-    private external fun nativeLastGenMs(handle: Long): Long
-    private external fun nativeLastPromptTokens(handle: Long): Int
-    private external fun nativeLastGenTokens(handle: Long): Int
-
-    /** Last-call timing snapshot returned by [translateWithMetrics]. */
-    data class TranslationResult(
-        val text: String,
-        val promptMs: Long,
-        val genMs: Long,
-        val promptTokens: Int,
-        val genTokens: Int,
-    ) {
+    data class TranslationResult(val text: String, val promptMs: Long, val genMs: Long,
+                                 val promptTokens: Int, val genTokens: Int) {
         val totalMs: Long get() = promptMs + genMs
     }
 
-    /** Called from JNI during generation — forwards token to listener. */
-    @Suppress("unused")
-    @androidx.annotation.Keep
-    fun onStreamToken(token: String) {
-        onStreamToken?.invoke(token)
-    }
-
-    /** Initialize on an IO thread. Looks for *.gguf file in modelDir. */
-    suspend fun initialize(modelDir: File) = withContext(Dispatchers.IO) {
-        try {
-            val ggufFile = modelDir.listFiles()?.firstOrNull { it.name.endsWith(".gguf") }
-            if (ggufFile == null || !ggufFile.exists()) {
-                Log.w(TAG, "No .gguf file found in ${modelDir.absolutePath}")
-                return@withContext
+    suspend fun initialize(modelDir: File) = withContext(dispatcher) {
+        operation.withLock {
+            check(!closed.get()) { "Translator closed" }
+            val model = File(modelDir, spec.fileName)
+            require(model.isFile && model.length() > 100_000_000L && spec.acceptsSize(model.length())) {
+                "${spec.title} 模型缺失或不完整，请在设置中下载/导入 ${spec.fileName}"
             }
-            Log.i(TAG, "Loading model: ${ggufFile.name} (${ggufFile.length() / 1024 / 1024}MB)")
-            nativeHandle = nativeCreate(ggufFile.absolutePath)
-            if (nativeHandle != 0L) {
-                Log.i(TAG, "Gemma translator initialized")
-            } else {
-                Log.w(TAG, "Gemma init returned null handle")
+            runtimeLease.lock(this@GemmaTranslator)
+            ownsLease = true
+            try {
+                check(!closed.get()) { "Translator closed" }
+                path = model.absolutePath
+                if (engineId == AppSettings.ENGINE_LMT) {
+                    val runtime = LmtNativeEngine()
+                    lmt = runtime
+                    runtime.initialize(model)
+                    actualBackend = AppSettings.BACKEND_CPU
+                } else {
+                    val candidates = if (backendPreference == AppSettings.BACKEND_CPU)
+                        listOf(AppSettings.BACKEND_CPU)
+                    else listOf(AppSettings.BACKEND_GPU, AppSettings.BACKEND_CPU)
+                    var failure: Exception? = null
+                    for (candidate in candidates) {
+                        try { loadGemma(model.absolutePath, candidate); failure = null; break }
+                        catch (e: Exception) { failure = e; Log.w(TAG, "$candidate initialization failed", e) }
+                    }
+                    if (gemma == null) throw IllegalStateException("Gemma CPU/GPU initialization failed", failure)
+                }
+                check(!closed.get()) { "Translator closed during initialization" }
+                ready = true
+            } catch (t: Throwable) {
+                disposeOnOwnerThread()
+                throw t
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Translator init failed: ${e.message}")
         }
     }
 
-    /** Translate [text] synchronously on the calling thread (must be off main thread). */
+    private fun loadGemma(modelPath: String, name: String) {
+        val backend = if (name == AppSettings.BACKEND_GPU) Backend.GPU() else Backend.CPU()
+        val instance = Engine(EngineConfig(modelPath = modelPath, backend = backend,
+            cacheDir = File(modelPath).parentFile?.absolutePath))
+        instance.initialize()
+        gemma = instance
+        actualBackend = name
+    }
+
     fun translate(text: String): String {
-        if (nativeHandle == 0L) {
-            return "[翻译引擎未加载]"
-        }
-        return try {
-            nativeTranslate(nativeHandle, text)
-        } catch (e: Exception) {
-            Log.e(TAG, "Translation exception: ${e.message}")
-            "[翻译异常: ${e.message}]"
+        if (closed.get() || !ready) return "[${spec.title} 翻译引擎未加载]"
+        return runBlocking {
+            withContext(dispatcher) {
+                operation.withLock {
+                    if (closed.get() || !ready) return@withLock "[翻译引擎已关闭]"
+                    try {
+                        if (engineId == AppSettings.ENGINE_LMT) {
+                            checkNotNull(lmt).translate(text) { chunk -> emit(chunk) }
+                                .ifEmpty { "[LMT 翻译结果为空]" }
+                        } else generateGemma(text, true)
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (first: Exception) {
+                        if (engineId == AppSettings.ENGINE_GEMMA4 &&
+                            actualBackend == AppSettings.BACKEND_GPU && !closed.get()) {
+                            try {
+                                gemma?.close()
+                                gemma = null
+                                loadGemma(checkNotNull(path), AppSettings.BACKEND_CPU)
+                                return@withLock generateGemma(text, false)
+                            } catch (cancelled: CancellationException) { throw cancelled }
+                            catch (second: Exception) { Log.e(TAG, "CPU fallback failed", second) }
+                        }
+                        Log.e(TAG, "${spec.title} inference failed", first)
+                        "[${spec.title} 翻译异常: ${first.message}]"
+                    }
+                }
+            }
         }
     }
 
-    /** Translate and return timing metrics alongside the result string. */
+    private fun emit(chunk: String) { if (!closed.get()) onStreamToken?.invoke(chunk) }
+    private suspend fun generateGemma(input: String, streaming: Boolean): String {
+        val config = ConversationConfig(systemInstruction = Contents.of(INSTRUCTION),
+            samplerConfig = SamplerConfig(topK = 8, topP = 0.9, temperature = 0.1))
+        val output = StringBuilder()
+        checkNotNull(gemma).createConversation(config).use { conversation ->
+            conversation.sendMessageAsync("Translate from Russian to Simplified Chinese:\n$input")
+                .collect { message ->
+                    if (closed.get()) throw CancellationException("Translator closed")
+                    val chunk = message.toString()
+                    output.append(chunk)
+                    if (streaming) emit(chunk)
+                }
+        }
+        return output.toString().trim().ifEmpty { "[翻译结果为空]" }
+    }
     fun translateWithMetrics(text: String): TranslationResult {
-        if (nativeHandle == 0L) {
-            return TranslationResult("[翻译引擎未加载]", 0L, 0L, 0, 0)
-        }
-        return try {
-            val out = nativeTranslate(nativeHandle, text)
-            TranslationResult(
-                text = out,
-                promptMs = nativeLastPromptMs(nativeHandle),
-                genMs = nativeLastGenMs(nativeHandle),
-                promptTokens = nativeLastPromptTokens(nativeHandle),
-                genTokens = nativeLastGenTokens(nativeHandle),
-            )
-        } catch (e: Exception) {
-            Log.e(TAG, "Translation exception: ${e.message}")
-            TranslationResult("[翻译异常: ${e.message}]", 0L, 0L, 0, 0)
+        val started = System.nanoTime()
+        val output = translate(text)
+        return TranslationResult(output, 0L, (System.nanoTime() - started) / 1_000_000, 0, 0)
+    }
+    fun isAvailable(): Boolean = ready && !closed.get()
+
+    /** UI-safe shutdown: cancel native CPU work, then close after any operation has exited. */
+    fun destroy() {
+        if (!closed.compareAndSet(false, true)) return
+        ready = false
+        onStreamToken = null
+        lmt?.cancel()
+        cleanupScope.launch {
+            try { operation.withLock { disposeOnOwnerThread() } }
+            finally { cleanupScope.cancel(); dispatcher.close() }
         }
     }
-
-    fun isAvailable(): Boolean =
-        nativeHandle != 0L && try { nativeIsAvailable(nativeHandle) } catch (_: Exception) { false }
-
-    fun destroy() {
-        if (nativeHandle != 0L) {
-            try { nativeDestroy(nativeHandle) } catch (_: Exception) {}
-            nativeHandle = 0L
+    private fun disposeOnOwnerThread() {
+        ready = false
+        try {
+            try { lmt?.close() } finally { lmt = null }
+            try { gemma?.close() } finally { gemma = null }
+        } finally {
+            if (ownsLease) { ownsLease = false; runtimeLease.unlock(this) }
         }
     }
 }

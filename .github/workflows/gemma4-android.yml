@@ -1,0 +1,86 @@
+name: Gemma4 + LMT Android APK
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: translator-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Check pinned llama.cpp
+        run: test "$(git -C app/src/main/cpp/llama.cpp rev-parse HEAD)" = "b30a5fdf370aa4cec02f6bbcc899fbbf3e77e763"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK + pinned NDK + CMake
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKMGR="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | head -n 1)"
+          test -x "$SDKMGR"
+          "$SDKMGR" --install "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358" "cmake;3.22.1"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Unit tests, lint and ARM64 APK
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon --max-workers=4 --stacktrace :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+      - name: Verify and package APK evidence
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/app-debug.apk dist/OfflineRealtimeTranslator-Gemma4-LMT-debug.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs dist/*.apk > dist/apk-signature.txt
+          python3 scripts/ci_lmt_report.py
+          sha256sum dist/*.apk > dist/SHA256SUMS.txt
+      - name: APK download
+        uses: actions/upload-artifact@v4
+        with:
+          name: OfflineRealtimeTranslator-Gemma4-LMT-debug
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Test and lint reports (including failures)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-test-reports
+          path: |
+            app/build/reports/
+            app/build/test-results/
+          retention-days: 30
+  lmt-native-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Build exactly the shared LMT core used by Android JNI
+        run: |
+          cmake -S app/src/main/cpp/lmt -B host-build -DCMAKE_BUILD_TYPE=Release
+          cmake --build host-build --parallel 4 --target lmt-contract-tests lmt-smoke
+          ctest --test-dir host-build --output-on-failure
+      - name: Download and verify the real pinned LMT weights
+        run: python3 scripts/lmt_model_smoke.py download
+      - name: Russian to Chinese real-model inference and cancellation
+        run: |
+          ./host-build/lmt-smoke /tmp/lmt-smoke.gguf > lmt-smoke.tsv
+          python3 scripts/lmt_model_smoke.py check
+      - name: Native/model evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lmt-native-inference-evidence
+          path: |
+            lmt-smoke.tsv
+            lmt-model-download.json
+            lmt-smoke-report.json
+            host-build/Testing/Temporary/LastTest.log
+          retention-days: 30

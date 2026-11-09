@@ -81,13 +81,21 @@ class VoskAsrManager(
         )
         val bufSize = maxOf(minBuf, SAMPLE_RATE / 5 * 2)
 
-        val recorder = AudioRecord(
-            MediaRecorder.AudioSource.VOICE_RECOGNITION,
-            SAMPLE_RATE,
-            AudioFormat.CHANNEL_IN_MONO,
-            AudioFormat.ENCODING_PCM_16BIT,
-            bufSize * 4
-        )
+        // The permission may be revoked after MainActivity checked it.
+        // Handle SecurityException at the actual capture call site, not just in the UI.
+        val recorder = try {
+            AudioRecord(
+                MediaRecorder.AudioSource.VOICE_RECOGNITION,
+                SAMPLE_RATE,
+                AudioFormat.CHANNEL_IN_MONO,
+                AudioFormat.ENCODING_PCM_16BIT,
+                bufSize * 4
+            )
+        } catch (e: SecurityException) {
+            running = false
+            withContext(Dispatchers.Main) { onError("麦克风权限已被撤销，请重新授权") }
+            return
+        }
 
         if (recorder.state != AudioRecord.STATE_INITIALIZED) {
             withContext(Dispatchers.Main) { onError("AudioRecord 初始化失败") }
@@ -95,7 +103,15 @@ class VoskAsrManager(
         }
 
         audioRecord = recorder
-        recorder.startRecording()
+        try {
+            recorder.startRecording()
+        } catch (e: SecurityException) {
+            running = false
+            recorder.release()
+            audioRecord = null
+            withContext(Dispatchers.Main) { onError("麦克风权限已被撤销，请重新授权") }
+            return
+        }
         Log.i(TAG, "Recording started, bufSize=$bufSize")
 
         val buf = ShortArray(bufSize / 2)
