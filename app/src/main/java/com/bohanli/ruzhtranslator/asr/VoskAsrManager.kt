@@ -22,7 +22,7 @@ class VoskAsrManager(
     private val onPartial: (String) -> Unit,
     private val onFinalResult: (String) -> Unit,
     private val onError: (String) -> Unit
-) {
+) : AsrEngine {
     companion object {
         private const val TAG = "VoskAsrManager"
         private const val SAMPLE_RATE = 16000
@@ -36,7 +36,7 @@ class VoskAsrManager(
 
     @Volatile private var running = false
 
-    suspend fun initialize() = withContext(Dispatchers.IO) {
+    override suspend fun initialize() = withContext(Dispatchers.IO) {
         try {
             Log.i(TAG, "Loading Vosk model: $modelPath")
             model = Model(modelPath)
@@ -49,7 +49,7 @@ class VoskAsrManager(
         }
     }
 
-    fun startListening() {
+    override fun startListening() {
         if (recognizer == null) {
             scope.launch(Dispatchers.Main) { onError("Vosk 识别器未初始化") }
             return
@@ -58,7 +58,7 @@ class VoskAsrManager(
         recordingJob = scope.launch { audioLoop() }
     }
 
-    fun stopListening() {
+    override fun stopListening() {
         running = false
         // Stopping the recorder causes read() to return an error code,
         // which breaks the audio loop naturally.
@@ -66,7 +66,7 @@ class VoskAsrManager(
         recordingJob?.cancel()
     }
 
-    fun release() {
+    override fun release() {
         stopListening()
         try { recognizer?.close() } catch (e: Exception) { Log.w(TAG, e.message ?: "") }
         try { model?.close() } catch (e: Exception) { Log.w(TAG, e.message ?: "") }
