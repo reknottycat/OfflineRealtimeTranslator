@@ -424,10 +424,17 @@ class MainActivity : AppCompatActivity() {
                     }
                 )
 
-                // Enable button and auto-start
-                binding.btnStartStop.isEnabled = true
-                binding.btnStartStop.alpha = 0.75f
-                requestMic()
+                // Do not start an unusable translation session before the user has
+                // installed the separately downloaded Gemma 4 bundle.
+                val ready = gemmaTranslator?.isAvailable() == true
+                binding.btnStartStop.isEnabled = ready
+                binding.btnStartStop.alpha = if (ready) 0.75f else 0.4f
+                if (ready) {
+                    updateStatus(AppStatus.Ready)
+                    requestMic()
+                } else {
+                    updateStatus(AppStatus.Error("Gemma 4 模型未安装，打开设置下载或导入"))
+                }
 
             } catch (e: Exception) {
                 Log.e(TAG, "Model loading failed", e)
