@@ -12,6 +12,7 @@ object AppSettings {
     private const val KEY_INFERENCE_BACKEND = "inference_backend"
     private const val KEY_MODEL_SOURCE = "model_source"
     private const val KEY_MODEL_GENERATION = "model_generation"
+    private const val KEY_SOURCE_POLICY_VERSION = "model_source_policy_version"
     const val ASR_MODEL_SMALL = "vosk-model-small-ru-0.22"
     const val ASR_MODEL_LARGE = "vosk-model-ru-0.42"
     const val ENGINE_GEMMA4 = "gemma4"
@@ -23,6 +24,9 @@ object AppSettings {
     const val SOURCE_HF = "huggingface"
     const val SOURCE_HF_MIRROR = "hf-mirror"
     const val SOURCE_MODELSCOPE = "modelscope"
+    const val SOURCE_AUTO = "auto"
+    const val SOURCE_CN_PROXY = "cn-proxy"
+    const val SOURCE_CUSTOM = "custom"
     @Volatile private var prefs: SharedPreferences? = null
     fun init(context: Context) {
         if (prefs == null) synchronized(this) {
@@ -32,6 +36,14 @@ object AppSettings {
                     val legacy = context.applicationContext.getSharedPreferences("MainActivity", Context.MODE_PRIVATE)
                         .getString(KEY_ASR_MODEL, null)
                     if (legacy != null) p.edit().putString(KEY_ASR_MODEL, legacy).apply()
+                }
+                // v3.5 defaulted to HF without any user action. Migrate that default once;
+                // afterwards an explicit preferred-source choice remains persistent.
+                if (p.getInt(KEY_SOURCE_POLICY_VERSION, 0) < 1) {
+                    val previous = p.getString(KEY_MODEL_SOURCE, null)
+                    val migration = p.edit().putInt(KEY_SOURCE_POLICY_VERSION, 1)
+                    if (previous == null || previous == SOURCE_HF) migration.putString(KEY_MODEL_SOURCE, SOURCE_AUTO)
+                    migration.apply()
                 }
                 prefs = p
             }
@@ -50,7 +62,7 @@ object AppSettings {
         get() = prefs?.getString(KEY_INFERENCE_BACKEND, BACKEND_AUTO) ?: BACKEND_AUTO
         set(value) { prefs?.edit()?.putString(KEY_INFERENCE_BACKEND, value)?.apply() }
     var modelSource: String
-        get() = prefs?.getString(KEY_MODEL_SOURCE, SOURCE_HF) ?: SOURCE_HF
+        get() = prefs?.getString(KEY_MODEL_SOURCE, SOURCE_AUTO) ?: SOURCE_AUTO
         set(value) { prefs?.edit()?.putString(KEY_MODEL_SOURCE, value)?.apply() }
     var modelGeneration: Int
         get() = prefs?.getInt(KEY_MODEL_GENERATION, 0) ?: 0

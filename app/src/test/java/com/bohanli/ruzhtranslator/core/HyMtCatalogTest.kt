@@ -30,7 +30,9 @@ class HyMtCatalogTest {
         assertEquals(spec.url("huggingface.co").substringAfter(".co/"),
             spec.url("hf-mirror.com").substringAfter(".com/"))
         assertEquals(spec.url("huggingface.co"), ModelCatalog.sourceUrl(AppSettings.SOURCE_HF, spec.engine))
-        assertNull(ModelCatalog.sourceUrl(AppSettings.SOURCE_MODELSCOPE, spec.engine))
+        assertEquals("https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT2-1.8B-GGUF/resolve/" +
+            "ef1d40b8b315575d30d1eb6579996130b8fc0bb2/Hy-MT2-1.8B-Q4_K_M.gguf",
+            ModelCatalog.sourceUrl(AppSettings.SOURCE_MODELSCOPE, spec.engine))
     }
     @Test fun nativeProfileIdsCannotAliasGemmaOrEachOther() {
         assertEquals(0, ModelCatalog.nativeKind(AppSettings.ENGINE_LMT))

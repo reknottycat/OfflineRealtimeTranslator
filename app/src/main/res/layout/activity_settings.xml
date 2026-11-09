@@ -48,8 +48,10 @@
                 <TextView android:id="@+id/tv_model_description" android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:layout_marginTop="6dp" android:textColor="#FFA7ABB4" android:textSize="13sp" />
                 <Spinner android:id="@+id/spinner_model_source" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="10dp" />
+                <TextView android:id="@+id/tv_source_hint" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:textColor="#FF9297A0" android:textSize="12sp" />
                 <EditText android:id="@+id/et_model_url" android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:inputType="textUri" android:singleLine="true" android:hint="ModelScope 或其他镜像的 HTTPS 模型文件直链"
+                    android:inputType="textUri" android:singleLine="true" android:hint="所选模型的 HTTPS 文件直链（可选镜像）"
                     android:textColor="#FFECECEC" android:textColorHint="#FF9297A0" android:visibility="gone" />
                 <TextView android:id="@+id/tv_model_status" android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:layout_marginTop="8dp" android:textColor="#FFA7ABB4" android:textSize="13sp" />
@@ -58,6 +60,8 @@
                     android:max="100" android:progressTint="#FF10A37F" android:visibility="gone" />
                 <Button android:id="@+id/btn_download_model" android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:layout_marginTop="12dp" android:text="下载 / 继续下载" />
+                <Button android:id="@+id/btn_pause_model" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="暂停下载，保留断点" android:visibility="gone" />
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
                     <Button android:id="@+id/btn_import_model" android:layout_width="0dp" android:layout_weight="1"
                         android:layout_height="wrap_content" android:text="从文件导入" />
@@ -65,7 +69,7 @@
                         android:layout_height="wrap_content" android:layout_marginStart="8dp" android:text="删除所选模型" />
                 </LinearLayout>
                 <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp"
-                    android:text="所有来源使用同一 SHA-256 校验。下载时请保持此页面打开；退出或旋转屏幕会中断，返回后可续传。模型文件不包含在 APK 内。"
+                    android:text="4 MiB 分块，默认 4 路并发；每块失败自动轮换来源，最多尝试 8 次。支持暂停续传，完成后校验整个模型。下载时保持此页面打开；退出或旋转屏幕后，返回并点击继续下载即可恢复。模型文件不包含在 APK 内。"
                     android:textSize="12sp" android:textColor="#FF9297A0" />
             </LinearLayout>
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">

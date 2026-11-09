@@ -19,7 +19,7 @@ Choose Gemma 4 or LMT in Settings. Downloads, imports, deletion, hashes and dire
 
 Gemma's GPU/CPU preference is retained independently. **LMT in this build is CPU only**; the UI must not claim GPU acceleration for it.
 
-Hugging Face and HF Mirror point to the same pinned file. Automatic mode retries the second source after failure. A ModelScope/custom HTTPS file URL is accepted only if its complete digest matches the selected artifact. No preverified ModelScope repository has been found or invented. All redirects must remain HTTPS; HTTP Range offsets are checked. Imports are verified before atomic replacement, and never delete the other model.
+Hugging Face and HF Mirror point to the same pinned file. In v3.6, automatic mode starts on HF Mirror for LMT, then rotates the three user-requested proxy candidates, with HF last. Unlike Gemma 4 and HY-MT2, the exact LMT GGUF has no verified ModelScope copy yet; original safetensors files are not substitutes. File size is now fixed to 1,282,439,264 bytes. The installer uses 4 MiB chunks, four workers, persisted per-chunk verification and final whole-file SHA-256. A custom HTTPS URL can be preferred without disabling fallback. All redirects remain HTTPS. See [source evidence](model-downloads/README.md) and [download design](CHINA_MODEL_DOWNLOADS.md).
 
 Downloads are foreground screen-scoped operations. Leaving/rotating the settings screen cancels work; use Download again to resume. A foreground service/background download manager is not implemented.
 

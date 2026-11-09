@@ -1,0 +1,47 @@
+[
+  {
+    "name": "lmt",
+    "url": "https://hf-mirror.com/mradermacher/LMT-60-1.7B-GGUF/resolve/f03d51b43463d8a457eee1cd765220de69e9bac8/LMT-60-1.7B.Q4_K_M.gguf",
+    "status": 206,
+    "final_host": "us.aws.cdn.hf.co",
+    "headers": {
+      "content-type": "application/octet-stream",
+      "accept-ranges": "bytes",
+      "etag": "\"13a1c2486aaa5ed1667cde5574d57a79b7e0323fb18ceba35d29948565d4f9f3\"",
+      "content-length": "64",
+      "content-range": "bytes 0-63/1282439264"
+    },
+    "body_hex": "474755460300000037010000000000002200000000000000140000000000000067656e6572616c2e617263686974656374757265080000000500000000000000",
+    "seconds": 23.52
+  },
+  {
+    "name": "gemma",
+    "url": "https://hf-mirror.com/litert-community/gemma-4-E2B-it-litert-lm/resolve/9262660a1676eed6d0c477ab1a86344430854664/gemma-4-E2B-it.litertlm",
+    "status": 206,
+    "final_host": "us.aws.cdn.hf.co",
+    "headers": {
+      "content-type": "application/octet-stream",
+      "accept-ranges": "bytes",
+      "etag": "\"ee3c29acd58e68bea04006a144cd2e40b3b34dcf5c08200a013744c518b15115\"",
+      "content-length": "64",
+      "content-range": "bytes 0-63/2588147712"
+    },
+    "body_hex": "4c49544552544c4d010000000500000000000000000000005007000000000000100000000000000008000c00080004000800000008000000000600001ef9ffff",
+    "seconds": 22.73
+  },
+  {
+    "name": "hy",
+    "url": "https://hf-mirror.com/tencent/Hy-MT2-1.8B-GGUF/resolve/a0c709d9fac510f2c807aa3af52872340dc37a4a/Hy-MT2-1.8B-Q4_K_M.gguf",
+    "status": 206,
+    "final_host": "us.aws.cdn.hf.co",
+    "headers": {
+      "content-type": "application/octet-stream",
+      "accept-ranges": "bytes",
+      "etag": "\"a7725d3b0b25dd12b87709a4ef9a4faa70e80d23de3d190661f3d01439b11e0c\"",
+      "content-length": "64",
+      "content-range": "bytes 0-63/1133080448"
+    },
+    "body_hex": "474755460300000062010000000000002100000000000000140000000000000067656e6572616c2e617263686974656374757265080000000d00000000000000",
+    "seconds": 22.87
+  }
+]

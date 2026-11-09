@@ -11,8 +11,8 @@ android {
         applicationId = "com.bohanli.ruzhtranslator"
         minSdk = 29
         targetSdk = 36
-        versionCode = 35
-        versionName = "3.5-alpha-hymt2"
+        versionCode = 36
+        versionName = "3.6-alpha-china-downloads"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += "arm64-v8a" }
         externalNativeBuild {

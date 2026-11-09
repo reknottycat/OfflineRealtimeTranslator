@@ -1,0 +1,125 @@
+{
+  "checked_at_utc": "2026-11-09T15:09:17.431772+00:00",
+  "china_device_tested": false,
+  "full_model_download_performed": false,
+  "models": [
+    {
+      "model_id": "hy",
+      "filename": "Hy-MT2-1.8B-Q4_K_M.gguf",
+      "size_bytes": 1133080448,
+      "sha256": "dc5f44fcf1fa496ee7ad725982c0c8c553a4de00259b53af84c4b89fb0c06699",
+      "modelscope_revision": "ef1d40b8b315575d30d1eb6579996130b8fc0bb2",
+      "sources": [
+        {
+          "provider": "ModelScope CN",
+          "name": "hy-resolve",
+          "url": "https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT2-1.8B-GGUF/resolve/ef1d40b8b315575d30d1eb6579996130b8fc0bb2/Hy-MT2-1.8B-Q4_K_M.gguf",
+          "verification": "HTTP 206, exact file total and magic; metadata SHA256 equals frozen artifact",
+          "final_host": "cdn-lfs-cn-1.modelscope.cn",
+          "same_platform_backup": false
+        },
+        {
+          "provider": "ModelScope CN",
+          "name": "hy-api",
+          "url": "https://modelscope.cn/api/v1/models/Tencent-Hunyuan/Hy-MT2-1.8B-GGUF/repo?Revision=ef1d40b8b315575d30d1eb6579996130b8fc0bb2&FilePath=Hy-MT2-1.8B-Q4_K_M.gguf",
+          "verification": "HTTP 206, exact file total and magic; metadata SHA256 equals frozen artifact",
+          "final_host": "modelscope.cn",
+          "same_platform_backup": true
+        },
+        {
+          "provider": "HF Mirror",
+          "name": "hy-hf-mirror",
+          "url": "https://hf-mirror.com/tencent/Hy-MT2-1.8B-GGUF/resolve/a0c709d9fac510f2c807aa3af52872340dc37a4a/Hy-MT2-1.8B-Q4_K_M.gguf",
+          "verification": "HTTP 206, exact total and model magic; HY also has a matching nonzero 4 MiB sample",
+          "final_host": "us.aws.cdn.hf.co"
+        }
+      ],
+      "hf_origin_url": "https://huggingface.co/tencent/Hy-MT2-1.8B-GGUF/resolve/a0c709d9fac510f2c807aa3af52872340dc37a4a/Hy-MT2-1.8B-Q4_K_M.gguf"
+    },
+    {
+      "model_id": "gemma",
+      "filename": "gemma-4-E2B-it.litertlm",
+      "size_bytes": 2588147712,
+      "sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+      "modelscope_revision": "1bacc155f57965ae45832a9ccfe96cdfcb0e94e9",
+      "sources": [
+        {
+          "provider": "ModelScope CN",
+          "name": "gemma-resolve",
+          "url": "https://modelscope.cn/models/litert-community/gemma-4-E2B-it-litert-lm/resolve/1bacc155f57965ae45832a9ccfe96cdfcb0e94e9/gemma-4-E2B-it.litertlm",
+          "verification": "HTTP 206, exact file total and magic; metadata SHA256 equals frozen artifact",
+          "final_host": "cdn-lfs-cn-1.modelscope.cn",
+          "same_platform_backup": false
+        },
+        {
+          "provider": "ModelScope CN",
+          "name": "gemma-api",
+          "url": "https://modelscope.cn/api/v1/models/litert-community/gemma-4-E2B-it-litert-lm/repo?Revision=1bacc155f57965ae45832a9ccfe96cdfcb0e94e9&FilePath=gemma-4-E2B-it.litertlm",
+          "verification": "HTTP 206, exact file total and magic; metadata SHA256 equals frozen artifact",
+          "final_host": "cdn-lfs-cn-1.modelscope.cn",
+          "same_platform_backup": true
+        },
+        {
+          "provider": "HF Mirror",
+          "name": "gemma-hf-mirror",
+          "url": "https://hf-mirror.com/litert-community/gemma-4-E2B-it-litert-lm/resolve/9262660a1676eed6d0c477ab1a86344430854664/gemma-4-E2B-it.litertlm",
+          "verification": "HTTP 206, exact total and model magic; HY also has a matching nonzero 4 MiB sample",
+          "final_host": "us.aws.cdn.hf.co"
+        }
+      ],
+      "hf_origin_url": "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/9262660a1676eed6d0c477ab1a86344430854664/gemma-4-E2B-it.litertlm"
+    },
+    {
+      "model_id": "lmt",
+      "filename": "LMT-60-1.7B.Q4_K_M.gguf",
+      "size_bytes": 1282439264,
+      "sha256": "54c6244f100330264cef607188413ee82cb8a254f0cf950011aaa9cee74f7eb5",
+      "hf_revision": "f03d51b43463d8a457eee1cd765220de69e9bac8",
+      "modelscope_same_artifact_found": false,
+      "sources": [
+        {
+          "provider": "HF Mirror",
+          "url": "https://hf-mirror.com/mradermacher/LMT-60-1.7B-GGUF/resolve/f03d51b43463d8a457eee1cd765220de69e9bac8/LMT-60-1.7B.Q4_K_M.gguf",
+          "verification": "HTTP 206, correct 64-byte header and nonzero 4 MiB range",
+          "final_host": "us.aws.cdn.hf.co",
+          "name": "lmt-hf-mirror"
+        }
+      ],
+      "hf_origin_url": "https://huggingface.co/mradermacher/LMT-60-1.7B-GGUF/resolve/f03d51b43463d8a457eee1cd765220de69e9bac8/LMT-60-1.7B.Q4_K_M.gguf"
+    }
+  ],
+  "user_requested_proxy_prefixes": [
+    {
+      "prefix": "https://gh-proxy.org/",
+      "status": "unusable on observed LMT file",
+      "details": "redirects to gh-proxy.com; HTML Site Unavailable, 195 bytes; 0-63 Range returns misleading 206; nonzero Range 416"
+    },
+    {
+      "prefix": "https://gh-proxy.com/",
+      "status": "unusable on observed LMT file",
+      "details": "HTML Site Unavailable, 195 bytes; 0-63 Range returns misleading 206; nonzero Range 416"
+    },
+    {
+      "prefix": "https://ghproxy.imciel.com/",
+      "status": "unusable on observed LMT file",
+      "details": "HTTP 403 error code 1010"
+    }
+  ],
+  "excluded_user_reported_dead_prefixes": [
+    "https://ghfast.top/",
+    "https://hub.gitmirror.com/",
+    "https://gh.llkk.cc/",
+    "https://github.moeyy.xyz/"
+  ],
+  "international_site_notes": "The exact .cn fixed-revision URLs with host www.modelscope.ai returned 404 for both HY and Gemma. Do not synthesize an international mirror URL without its own artifact metadata.",
+  "evidence_notes": [
+    "ModelScope resolve and API are same-platform fallback routes, not independent availability guarantees.",
+    "HF Mirror succeeded from this environment but redirected to us.aws.cdn.hf.co; not proof of Chinese carrier availability.",
+    "All source switching must enforce artifact identity by exact byte count and final frozen SHA256.",
+    "Status 200 or 206 alone is insufficient; reject HTML, malformed Content-Range, wrong start/end/total, too-short or too-long chunks, and incorrect model magic.",
+    "HY ModelScope resolve, ModelScope API and HF Mirror returned identical SHA256 for bytes4194304-8388607 (004ecad51c605b7f2d5e0c41b487773d64e0957b98ee937bcf5665c0452d7e82).",
+    "Community ModelScope fss618/Hy-MT2-1.8B-GGUF Q4 differs by32bytes and SHA; excluded as unequal artifact."
+  ],
+  "checked_date_beijing": "2026-11-09",
+  "lmt_modelscope_search": "ModelScope OpenAPI search=LMT-60 returned 8 yvanluo repositories; the full yvanluo/LMT-60-1.7B file list contains safetensors and no GGUF. No same-hash Q4_K_M artifact found in this bounded search."
+}

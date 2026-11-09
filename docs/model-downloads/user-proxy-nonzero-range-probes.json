@@ -1,0 +1,39 @@
+[
+  {
+    "name": "gh-proxy.org",
+    "url": "https://gh-proxy.org/https://huggingface.co/mradermacher/LMT-60-1.7B-GGUF/resolve/f03d51b43463d8a457eee1cd765220de69e9bac8/LMT-60-1.7B.Q4_K_M.gguf",
+    "error": "HTTP Error 416: Range Not Satisfiable",
+    "seconds": 4.28,
+    "error_body": "<html>\r\n<head><title>416 Requested Range Not Satisfiable</title></head>\r\n<body>\r\n<center><h1>416 Requested Range Not Satisfiable</h1></center>\r\n<hr><center>openresty/1.27.1.1</center>\r\n</body>\r\n</html>\r\n"
+  },
+  {
+    "name": "ghproxy.imciel.com",
+    "url": "https://ghproxy.imciel.com/https://huggingface.co/mradermacher/LMT-60-1.7B-GGUF/resolve/f03d51b43463d8a457eee1cd765220de69e9bac8/LMT-60-1.7B.Q4_K_M.gguf",
+    "error": "HTTP Error 403: Forbidden",
+    "seconds": 5.18,
+    "error_body": "error code: 1010\n"
+  },
+  {
+    "name": "gh-proxy.com",
+    "url": "https://gh-proxy.com/https://huggingface.co/mradermacher/LMT-60-1.7B-GGUF/resolve/f03d51b43463d8a457eee1cd765220de69e9bac8/LMT-60-1.7B.Q4_K_M.gguf",
+    "error": "HTTP Error 416: Range Not Satisfiable",
+    "seconds": 4.27,
+    "error_body": "<html>\r\n<head><title>416 Requested Range Not Satisfiable</title></head>\r\n<body>\r\n<center><h1>416 Requested Range Not Satisfiable</h1></center>\r\n<hr><center>openresty/1.27.1.1</center>\r\n</body>\r\n</html>\r\n"
+  },
+  {
+    "name": "hf-mirror.com",
+    "url": "https://hf-mirror.com/mradermacher/LMT-60-1.7B-GGUF/resolve/f03d51b43463d8a457eee1cd765220de69e9bac8/LMT-60-1.7B.Q4_K_M.gguf",
+    "requested_range": "bytes=1048576-1048639",
+    "status": 206,
+    "final_host": "us.aws.cdn.hf.co",
+    "headers": {
+      "content-type": "application/octet-stream",
+      "accept-ranges": "bytes",
+      "etag": "\"13a1c2486aaa5ed1667cde5574d57a79b7e0323fb18ceba35d29948565d4f9f3\"",
+      "content-length": "64",
+      "content-range": "bytes 1048576-1048639/1282439264"
+    },
+    "body_hex": "00000000000000c4a0537472756374757265730900000000000000c4a0736f7576656e7407000000000000005370656369667905000000000000002870697065",
+    "seconds": 13.67
+  }
+]

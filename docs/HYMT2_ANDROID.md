@@ -30,7 +30,7 @@ Sources checked on 2026-11-09:
 
 Settings → 腾讯 HY-MT2-1.8B → download/resume or import → return to main screen → explicitly start listening.
 
-Existing downloader is retained. Hugging Face / HF Mirror automatic failover and custom HTTPS (including ModelScope) all use the same pinned digest. **No verified automatic ModelScope Q4 mirror is claimed.** Each engine has separate files and saved custom URL; removing one does not remove the others. Speech models are still provisioned separately.
+The v3.6 downloader now uses verified ModelScope files first, then HF Mirror, user-requested proxy candidates, and Hugging Face. The ModelScope namespace is **Tencent-Hunyuan**, not the HF namespace `tencent`; its own pinned revision is `ef1d40b8b315575d30d1eb6579996130b8fc0bb2`. The artifact has the exact size and SHA-256 listed above. See [source evidence](model-downloads/README.md) and [chunked download behavior](CHINA_MODEL_DOWNLOADS.md). Each engine has separate files and saved custom URL; removing one does not remove the others. Speech models are still provisioned separately.
 
 ## Frontend status
 

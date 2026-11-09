@@ -2,6 +2,24 @@
 
 A fully offline Android application for real-time Russian-to-Chinese simultaneous interpretation. All inference runs entirely on-device with no network connection required.
 
+## 当前测试版：v3.6 国内模型源与分块续传
+
+在设置中选择 Gemma 4、LMT 或 HY-MT2，然后点击 **下载 / 继续下载**。默认来源为 **自动（国内源优先，失败换源）**；旧版默认 HuggingFace 设置会一次性迁移。ModelScope 已有内置文件地址，无需手工粘贴。
+
+| 翻译模型 | 首选下载入口 | 文件身份 |
+|---|---|---|
+| Gemma 4 E2B LiteRT-LM | ModelScope `litert-community/gemma-4-E2B-it-litert-lm` | 2,588,147,712 字节；与原固定版本 SHA-256 一致 |
+| 腾讯 HY-MT2 1.8B Q4_K_M | ModelScope `Tencent-Hunyuan/Hy-MT2-1.8B-GGUF` | 1,133,080,448 字节；与腾讯原固定版本 SHA-256 一致 |
+| NiuTrans LMT 1.7B Q4_K_M | HF Mirror，失败后轮换代理候选 | 1,282,439,264 字节；尚未找到同一 GGUF 的 ModelScope 副本 |
+
+自动顺序：ModelScope 文件入口 → ModelScope API 入口 → HF Mirror → 用户指定的三个代理候选 → HuggingFace。缺少 ModelScope 文件的模型直接从镜像开始。显式选择某个来源表示优先尝试它，失败仍会自动换源。
+
+下载采用 **4 MiB 分块、4 路并发、每块最多 8 次尝试**。已完成分块的数据落盘后才更新校验记录；暂停、退出或进程被杀后，重新打开设置并点击继续，只补缺失或损坏块。服务端不支持 Range 时安全回退到顺序下载。整文件 SHA-256 通过后才安装。
+
+来源是否有效由实际 HTTPS 文件响应、精确 Content-Range、总大小及最终 SHA-256 决定。三个代理只是候选：本次云端实测 `.org/.com` 返回 HTML 假文件、`imciel` 返回 403，客户端会拒绝并换源。没有中国实体手机网络测速或下载速度保证。完整地址和可复现实验见 [模型来源核验证据](docs/model-downloads/README.md)，下载器行为见 [下载设计与验收](docs/CHINA_MODEL_DOWNLOADS.md)。
+
+这是 ARM64 调试预发布版；权重不包含在 APK 中。语音识别及标点模型仍按既有方式单独部署。下方保留的 Gemma 3 / OpenCL 内容属于上游历史版本说明；当前引擎参见 [Gemma 4](docs/MIGRATION_GEMMA4.md)、[LMT](docs/LMT_ANDROID.md) 和 [HY-MT2](docs/HYMT2_ANDROID.md)。
+
 ## Technology Stack
 
 ```

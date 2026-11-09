@@ -1,0 +1,75 @@
+[
+  {
+    "name": "hy-resolve",
+    "url": "https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT2-1.8B-GGUF/resolve/ef1d40b8b315575d30d1eb6579996130b8fc0bb2/Hy-MT2-1.8B-Q4_K_M.gguf",
+    "status": 206,
+    "final_host": "cdn-lfs-cn-1.modelscope.cn",
+    "headers": {
+      "server": "envoy",
+      "content-type": "application/octet-stream",
+      "content-length": "64",
+      "accept-ranges": "bytes",
+      "etag": "\"D435A97D1996E970014C51E6B49BD56B-400\"",
+      "last-modified": "Mon, 25 May 2026 01:57:01 GMT",
+      "content-range": "bytes 0-63/1133080448",
+      "x-linked-etag": "dc5f44fcf1fa496ee7ad725982c0c8c553a4de00259b53af84c4b89fb0c06699"
+    },
+    "body_hex": "474755460300000062010000000000002100000000000000140000000000000067656e6572616c2e617263686974656374757265080000000d00000000000000",
+    "body_repr": "b'GGUF\\x03\\x00\\x00\\x00b\\x01\\x00\\x00\\x00\\x00\\x00\\x00!\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x14\\x00\\x00\\x00\\x00\\x00\\x00\\x00general.architecture\\x08\\x00\\x00\\x00\\r\\x00\\x00\\x00\\x00\\x00\\x00\\x00'",
+    "seconds": 15.73
+  },
+  {
+    "name": "hy-api",
+    "url": "https://modelscope.cn/api/v1/models/Tencent-Hunyuan/Hy-MT2-1.8B-GGUF/repo?Revision=ef1d40b8b315575d30d1eb6579996130b8fc0bb2&FilePath=Hy-MT2-1.8B-Q4_K_M.gguf",
+    "status": 206,
+    "final_host": "modelscope.cn",
+    "headers": {
+      "server": "envoy",
+      "content-type": "application/octet-stream",
+      "content-length": "64",
+      "accept-ranges": "bytes",
+      "content-range": "bytes 0-63/1133080448"
+    },
+    "body_hex": "474755460300000062010000000000002100000000000000140000000000000067656e6572616c2e617263686974656374757265080000000d00000000000000",
+    "body_repr": "b'GGUF\\x03\\x00\\x00\\x00b\\x01\\x00\\x00\\x00\\x00\\x00\\x00!\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x14\\x00\\x00\\x00\\x00\\x00\\x00\\x00general.architecture\\x08\\x00\\x00\\x00\\r\\x00\\x00\\x00\\x00\\x00\\x00\\x00'",
+    "seconds": 8.16
+  },
+  {
+    "name": "gemma-resolve",
+    "url": "https://modelscope.cn/models/litert-community/gemma-4-E2B-it-litert-lm/resolve/1bacc155f57965ae45832a9ccfe96cdfcb0e94e9/gemma-4-E2B-it.litertlm",
+    "status": 206,
+    "final_host": "cdn-lfs-cn-1.modelscope.cn",
+    "headers": {
+      "server": "envoy",
+      "content-type": "application/octet-stream",
+      "content-length": "64",
+      "accept-ranges": "bytes",
+      "etag": "\"CE85B902C20117138DAE95E5A193E5FE-2469\"",
+      "last-modified": "Sun, 24 May 2026 15:05:42 GMT",
+      "content-range": "bytes 0-63/2588147712",
+      "x-linked-etag": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
+    },
+    "body_hex": "4c49544552544c4d010000000500000000000000000000005007000000000000100000000000000008000c00080004000800000008000000000600001ef9ffff",
+    "body_repr": "b'LITERTLM\\x01\\x00\\x00\\x00\\x05\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00P\\x07\\x00\\x00\\x00\\x00\\x00\\x00\\x10\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x08\\x00\\x0c\\x00\\x08\\x00\\x04\\x00\\x08\\x00\\x00\\x00\\x08\\x00\\x00\\x00\\x00\\x06\\x00\\x00\\x1e\\xf9\\xff\\xff'",
+    "seconds": 15.76
+  },
+  {
+    "name": "gemma-api",
+    "url": "https://modelscope.cn/api/v1/models/litert-community/gemma-4-E2B-it-litert-lm/repo?Revision=1bacc155f57965ae45832a9ccfe96cdfcb0e94e9&FilePath=gemma-4-E2B-it.litertlm",
+    "status": 206,
+    "final_host": "cdn-lfs-cn-1.modelscope.cn",
+    "headers": {
+      "server": "envoy",
+      "content-type": "application/octet-stream",
+      "content-length": "64",
+      "accept-ranges": "bytes",
+      "etag": "\"CE85B902C20117138DAE95E5A193E5FE-2469\"",
+      "last-modified": "Sun, 24 May 2026 15:05:42 GMT",
+      "content-range": "bytes 0-63/2588147712",
+      "x-linked-etag": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
+    },
+    "body_hex": "4c49544552544c4d010000000500000000000000000000005007000000000000100000000000000008000c00080004000800000008000000000600001ef9ffff",
+    "body_repr": "b'LITERTLM\\x01\\x00\\x00\\x00\\x05\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00P\\x07\\x00\\x00\\x00\\x00\\x00\\x00\\x10\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x08\\x00\\x0c\\x00\\x08\\x00\\x04\\x00\\x08\\x00\\x00\\x00\\x08\\x00\\x00\\x00\\x00\\x06\\x00\\x00\\x1e\\xf9\\xff\\xff'",
+    "seconds": 15.8
+  }
+]

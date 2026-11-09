@@ -1,0 +1,84 @@
+{
+  "url": "https://modelscope.cn/api/v1/models/yvanluo/LMT-60-1.7B/repo/files?Revision=master&Recursive=true",
+  "Code": 200,
+  "files": [
+    {
+      "name": ".gitattributes",
+      "size": 2227,
+      "sha256": "66cf049492785c658aff047c4ff12203557f523a61c32b95706b1364885770c6",
+      "revision": "504614b412228586591b5dfcbfc9cb21bf0b63d6"
+    },
+    {
+      "name": "README.md",
+      "size": 4794,
+      "sha256": "0be175496fd9fb9491f9927528b640305b584e022488426a92a1af7ba5d15efb",
+      "revision": "c76a97a71627bea26be2350a2672e974a092504f"
+    },
+    {
+      "name": "added_tokens.json",
+      "size": 707,
+      "sha256": "c0284b582e14987fbd3d5a2cb2bd139084371ed9acbae488829a1c900833c680",
+      "revision": "504614b412228586591b5dfcbfc9cb21bf0b63d6"
+    },
+    {
+      "name": "chat_template.jinja",
+      "size": 4116,
+      "sha256": "87a2728cb8dc9fe424d624542f6060ec05a1d285ebbec578bb078900e33396b5",
+      "revision": "e0387cd8b2eb39bb519db7a3dbb30ab91a02a40a"
+    },
+    {
+      "name": "config.json",
+      "size": 1361,
+      "sha256": "75de7ead02f1a990d1de14abcb853533207545af04bc3ba36717415eaf21e6b8",
+      "revision": "e0387cd8b2eb39bb519db7a3dbb30ab91a02a40a"
+    },
+    {
+      "name": "configuration.json",
+      "size": 44,
+      "sha256": "601f73be19679b296536532d93d2dd8c96d999ff76fd836f2f2359a8885bbbd8",
+      "revision": "8e29a7431b692fa2c0d152aa4c196b0da5e791fc"
+    },
+    {
+      "name": "generation_config.json",
+      "size": 139,
+      "sha256": "25e689842520b4e128fc17679f396e34484e85a3519b825b254ef19c25e141d2",
+      "revision": "e0387cd8b2eb39bb519db7a3dbb30ab91a02a40a"
+    },
+    {
+      "name": "merges.txt",
+      "size": 1671853,
+      "sha256": "8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5",
+      "revision": "504614b412228586591b5dfcbfc9cb21bf0b63d6"
+    },
+    {
+      "name": "model.safetensors",
+      "size": 4063515640,
+      "sha256": "f32e78140294b4db8d560ca2ff280b723a5989ec63e12c4dd55459647722150b",
+      "revision": "e0387cd8b2eb39bb519db7a3dbb30ab91a02a40a"
+    },
+    {
+      "name": "special_tokens_map.json",
+      "size": 613,
+      "sha256": "76862e765266b85aa9459767e33cbaf13970f327a0e88d1c65846c2ddd3a1ecd",
+      "revision": "504614b412228586591b5dfcbfc9cb21bf0b63d6"
+    },
+    {
+      "name": "tokenizer.json",
+      "size": 11422654,
+      "sha256": "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4",
+      "revision": "504614b412228586591b5dfcbfc9cb21bf0b63d6"
+    },
+    {
+      "name": "tokenizer_config.json",
+      "size": 5404,
+      "sha256": "443bfa629eb16387a12edbf92a76f6a6f10b2af3b53d87ba1550adfcf45f7fa0",
+      "revision": "e0387cd8b2eb39bb519db7a3dbb30ab91a02a40a"
+    },
+    {
+      "name": "vocab.json",
+      "size": 2776833,
+      "sha256": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910",
+      "revision": "504614b412228586591b5dfcbfc9cb21bf0b63d6"
+    }
+  ]
+}

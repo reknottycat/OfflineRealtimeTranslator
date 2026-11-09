@@ -18,6 +18,7 @@ import com.bohanli.ruzhtranslator.databinding.ActivitySettingsBinding
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -26,10 +27,13 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var binding: ActivitySettingsBinding
     private lateinit var hyMtButton: AppCompatRadioButton
     private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private val sourceKeys = listOf("auto", AppSettings.SOURCE_HF, AppSettings.SOURCE_HF_MIRROR, AppSettings.SOURCE_MODELSCOPE)
+    private val sourceKeys = listOf(AppSettings.SOURCE_AUTO, AppSettings.SOURCE_MODELSCOPE,
+        AppSettings.SOURCE_HF_MIRROR, AppSettings.SOURCE_CN_PROXY, AppSettings.SOURCE_HF, AppSettings.SOURCE_CUSTOM)
     private val customUrls by lazy { getSharedPreferences("model_custom_urls", MODE_PRIVATE) }
     private var rendering = false
     private var busy = false
+    private var downloading = false
+    private var operationJob: Job? = null
     private var renderedEngine = AppSettings.ENGINE_GEMMA4
     private var pendingImportEngine = AppSettings.ENGINE_GEMMA4
     private fun selectedModel() = ModelCatalog.forEngine(AppSettings.translationEngine)
@@ -57,7 +61,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.radioTranslationEngine.addView(hyMtButton,
             RadioGroup.LayoutParams(RadioGroup.LayoutParams.MATCH_PARENT, RadioGroup.LayoutParams.WRAP_CONTENT))
         binding.btnBack.setOnClickListener { finish() }
-        binding.tvVersion.text = "v3.5-alpha · Gemma 4 / LMT / HY-MT2"
+        binding.tvVersion.text = "v3.6-alpha · 国内源 / 分块续传 · Gemma 4 / LMT / HY-MT2"
         binding.radioAsrModel.check(if (AppSettings.asrModel == AppSettings.ASR_MODEL_LARGE)
             binding.rbAsrLarge.id else binding.rbAsrSmall.id)
         binding.radioAsrModel.setOnCheckedChangeListener { _, id ->
@@ -86,28 +90,37 @@ class SettingsActivity : AppCompatActivity() {
         binding.switchDriftRetry.isChecked = AppSettings.driftRetryEnabled
         binding.switchDriftRetry.setOnCheckedChangeListener { _, checked -> AppSettings.driftRetryEnabled = checked }
         binding.spinnerModelSource.adapter = ArrayAdapter(this, R.layout.spinner_item,
-            arrayOf("自动（HF → HF Mirror）", "Hugging Face（托管源）", "HF Mirror（第三方镜像）", "ModelScope / 自定义 HTTPS"))
+            arrayOf("自动（国内源优先，失败换源）", "魔搭 ModelScope 优先", "HF Mirror 优先",
+                "备用代理优先（自动轮换）", "Hugging Face 优先", "自定义 HTTPS 优先"))
             .also { it.setDropDownViewResource(R.layout.spinner_dropdown_item) }
+        // Preserve a v3.5 user-entered URL: ModelScope and custom are now distinct choices.
+        if (!customUrls.getBoolean("source_selection_migrated_v1", false)) {
+            val hasOldCustom = ModelCatalog.all.any { customUrls.getString(it.engine, "").orEmpty().isNotBlank() }
+            if (AppSettings.modelSource == AppSettings.SOURCE_MODELSCOPE && hasOldCustom) {
+                AppSettings.modelSource = AppSettings.SOURCE_CUSTOM
+            }
+            customUrls.edit().putBoolean("source_selection_migrated_v1", true).apply()
+        }
         binding.spinnerModelSource.setSelection(sourceKeys.indexOf(AppSettings.modelSource).coerceAtLeast(0))
         binding.spinnerModelSource.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 AppSettings.modelSource = sourceKeys[position]
-                binding.etModelUrl.visibility = if (sourceKeys[position] == AppSettings.SOURCE_MODELSCOPE) View.VISIBLE else View.GONE
+                refreshSourceUi()
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
         binding.btnDownloadModel.setOnClickListener {
             val spec = selectedModel()
             val installer = ModelDownloader(this, spec)
-            val urls = when (AppSettings.modelSource) {
-                "auto" -> listOf(spec.url("huggingface.co"), spec.url("hf-mirror.com"))
-                AppSettings.SOURCE_MODELSCOPE -> listOf(binding.etModelUrl.text.toString().trim())
-                else -> listOfNotNull(ModelCatalog.sourceUrl(AppSettings.modelSource, spec.engine))
+            val urls = try {
+                ModelCatalog.downloadUrls(AppSettings.modelSource, spec.engine, binding.etModelUrl.text.toString())
+            } catch (e: IllegalArgumentException) {
+                toast(e.message ?: "请检查下载来源"); return@setOnClickListener
             }
-            if (urls.isEmpty() || urls.any { it.isBlank() }) { toast("请填写对应模型的 HTTPS 文件直链"); return@setOnClickListener }
             customUrls.edit().putString(spec.engine, binding.etModelUrl.text.toString()).apply()
-            startModelOperation { installer.download(urls, ::showProgress) }
+            startModelOperation(isDownload = true) { installer.download(urls, ::showProgress) }
         }
+        binding.btnPauseModel.setOnClickListener { operationJob?.cancel() }
         binding.btnImportModel.setOnClickListener {
             pendingImportEngine = AppSettings.translationEngine
             importModel.launch(arrayOf("*/*"))
@@ -147,6 +160,7 @@ class SettingsActivity : AppCompatActivity() {
         }
         binding.tvModelDescription.text = "${spec.title} · ${spec.sizeLabel}\n${spec.fileName}\n${origin}固定版本与 SHA-256。"
         binding.etModelUrl.setText(customUrls.getString(spec.engine, ""))
+        refreshSourceUi()
         val shortName = when (spec.engine) {
             AppSettings.ENGINE_LMT -> "LMT"
             AppSettings.ENGINE_HYMT2 -> "HY-MT2"
@@ -158,14 +172,25 @@ class SettingsActivity : AppCompatActivity() {
         rendering = false
         setBusy(busy)
     }
-    private fun startModelOperation(action: suspend () -> Unit) {
+    private fun refreshSourceUi() {
+        binding.etModelUrl.visibility = if (AppSettings.modelSource == AppSettings.SOURCE_CUSTOM) View.VISIBLE else View.GONE
+        val spec = selectedModel()
+        binding.tvSourceHint.text = if (spec.modelScopeUrl() != null)
+            "已内置魔搭模型地址。所选来源失败后自动尝试其他来源；支持分块下载和断点续传。"
+        else "此 LMT 量化文件暂无已核验的魔搭地址，将使用镜像和备用代理；来源失败自动切换。"
+    }
+    private fun startModelOperation(isDownload: Boolean = false, action: suspend () -> Unit) {
         if (busy) return
+        downloading = isDownload
         setBusy(true)
-        uiScope.launch {
+        operationJob = uiScope.launch {
             try { action(); refreshModelUi() }
-            catch (e: CancellationException) { throw e }
+            catch (e: CancellationException) {
+                if (isDownload && !isDestroyed) binding.tvModelStatus.text = "已暂停 · 已完成分块已保存，点击继续下载可恢复"
+                throw e
+            }
             catch (e: Exception) { binding.tvModelStatus.text = "操作未完成：${e.message}" }
-            finally { setBusy(false) }
+            finally { setBusy(false); downloading = false }
         }
     }
     private fun showProgress(p: ModelDownloader.Progress) = runOnUiThread {
@@ -184,6 +209,7 @@ class SettingsActivity : AppCompatActivity() {
         val canChooseDevice = !value && AppSettings.translationEngine == AppSettings.ENGINE_GEMMA4
         listOf(binding.rbBackendCpu, binding.rbBackendAuto, binding.rbBackendGpu).forEach { it.isEnabled = canChooseDevice }
         binding.progressModel.visibility = if (value) View.VISIBLE else View.GONE
+        binding.btnPauseModel.visibility = if (value && downloading) View.VISIBLE else View.GONE
     }
     private fun toast(message: String) { Toast.makeText(this, message, Toast.LENGTH_SHORT).show() }
     override fun onSaveInstanceState(outState: Bundle) {

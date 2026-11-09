@@ -1,5 +1,7 @@
 # Gemma 4 E2B + LiteRT-LM migration
 
+> Historical first-stage notes. In v3.6, Gemma downloads default to the verified ModelScope artifact (`litert-community/gemma-4-E2B-it-litert-lm`, ModelScope revision `1bacc155f57965ae45832a9ccfe96cdfcb0e94e9`), with the same size and SHA-256 below. LMT and HY-MT2 are now implemented in their own backends. See [current download design](CHINA_MODEL_DOWNLOADS.md) and [source evidence](model-downloads/README.md).
+
 This is a **first-stage migration** on a feature branch. It preserves Vosk Russian ASR,
 Recasepunc, TranslationQueue, history, pause/resume and the existing Room schema.
 

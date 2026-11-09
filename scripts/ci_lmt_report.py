@@ -18,7 +18,7 @@ if totals['failures'] or totals['errors'] or totals['skipped']:
     raise SystemExit(f'Unit tests must pass without skipping: {totals}')
 if totals['tests'] < 25:
     raise SystemExit(f'Missing baseline/HY-MT2 unit tests: {totals}')
-apk = Path('dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk')
+apk = Path(os.environ.get('APK_PATH', 'dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk'))
 with zipfile.ZipFile(apk) as archive:
     names = archive.namelist()
     required = ['lib/arm64-v8a/liblmt_translator.so', 'lib/arm64-v8a/liblitertlm_jni.so']
@@ -43,6 +43,8 @@ result = {
     'native_libraries_present': required,
     'gguf_profiles_share_native_library': True,
     'weights_bundled': False,
+    'download_policy': 'China-first; 4 MiB chunks; bounded failover; final SHA-256',
+    'china_phone_network_verified': False,
     'phone_inference_verified': False,
     'broad_translation_quality_accepted': False,
     'apk_bytes': apk.stat().st_size,
