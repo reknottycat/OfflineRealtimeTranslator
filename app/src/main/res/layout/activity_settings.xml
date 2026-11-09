@@ -83,6 +83,41 @@
                     <RadioButton android:id="@+id/rb_asr_large" android:layout_width="match_parent" android:layout_height="wrap_content"
                         android:text="@string/asr_model_large" android:textColor="#FFFFFFFF" android:buttonTint="#FF10A37F" />
                 </RadioGroup>
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp" android:text="下载来源" android:textColor="#FFF5F5F5"
+                    android:textStyle="bold" android:textSize="14sp" />
+                <Spinner android:id="@+id/spinner_asr_source" android:layout_width="match_parent"
+                    android:layout_height="48dp" />
+                <TextView android:id="@+id/tv_asr_hint" android:layout_width="match_parent"
+                    android:layout_height="wrap_content" android:textColor="#FF9297A0" android:textSize="12sp" />
+                <EditText android:id="@+id/et_asr_url" android:layout_width="match_parent"
+                    android:layout_height="wrap_content" android:inputType="textUri"
+                    android:singleLine="true" android:hint="Vosk ZIP 的自定义 HTTPS 下载直链"
+                    android:textColor="#FFECECEC" android:textColorHint="#FF9297A0"
+                    android:visibility="gone" />
+                <TextView android:id="@+id/tv_asr_status" android:layout_width="match_parent"
+                    android:layout_height="wrap_content" android:layout_marginTop="8dp"
+                    android:textColor="#FFA7ABB4" android:textSize="13sp" />
+                <ProgressBar android:id="@+id/progress_asr" style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="match_parent" android:layout_height="6dp"
+                    android:layout_marginTop="8dp" android:max="100"
+                    android:progressTint="#FF10A37F" android:visibility="gone" />
+                <Button android:id="@+id/btn_download_asr" android:layout_width="match_parent"
+                    android:layout_height="wrap_content" android:layout_marginTop="10dp"
+                    android:text="下载 / 继续下载所选 Vosk 模型" />
+                <Button android:id="@+id/btn_pause_asr" android:layout_width="match_parent"
+                    android:layout_height="wrap_content" android:text="暂停 Vosk 下载，保留断点"
+                    android:visibility="gone" />
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <Button android:id="@+id/btn_import_asr" android:layout_width="0dp"
+                        android:layout_weight="1" android:layout_height="wrap_content"
+                        android:text="导入 Vosk ZIP" />
+                    <Button android:id="@+id/btn_remove_asr" android:layout_width="0dp"
+                        android:layout_weight="1" android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp" android:text="删除所选 Vosk" />
+                </LinearLayout>
+
                 <androidx.appcompat.widget.SwitchCompat android:id="@+id/switch_drift_retry"
                     android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="10dp"
                     android:text="@string/drift_retry_title" android:textColor="#FFFFFFFF" android:thumbTint="#FF10A37F" />
