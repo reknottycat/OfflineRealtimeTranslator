@@ -12,12 +12,12 @@ static jbyteArray bytes(JNIEnv* env, const std::string& value) {
     return result;
 }
 extern "C" JNIEXPORT jlong JNICALL
-Java_com_bohanli_ruzhtranslator_translation_LmtNativeEngine_nativeCreate(JNIEnv* env, jobject, jstring path) {
+Java_com_bohanli_ruzhtranslator_translation_LmtNativeEngine_nativeCreate(JNIEnv* env, jobject, jstring path, jint profile) {
     const char* chars = env->GetStringUTFChars(path, nullptr);
     if (!chars) return 0;
     std::string filename(chars);
     env->ReleaseStringUTFChars(path, chars);
-    try { return reinterpret_cast<jlong>(new lmt::Engine(filename)); }
+    try { return reinterpret_cast<jlong>(new lmt::Engine(filename, lmt::profile_from_id(profile))); }
     catch (const std::exception& error) { fail(env, error.what()); return 0; }
 }
 extern "C" JNIEXPORT jbyteArray JNICALL

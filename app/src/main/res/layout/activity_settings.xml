@@ -26,6 +26,8 @@
                         android:buttonTint="#FF10A37F" android:textColor="#FFECECEC" android:text="Gemma 4 E2B · LiteRT-LM" />
                     <RadioButton android:id="@+id/rb_lmt" android:layout_width="match_parent" android:layout_height="wrap_content"
                         android:buttonTint="#FF10A37F" android:textColor="#FFECECEC" android:text="NiuTrans LMT-60-1.7B · llama.cpp" />
+                    <RadioButton android:id="@+id/rb_hymt2" android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="HY-MT2-1.8B · 腾讯混元翻译 · CPU" android:textColor="#FFECECEC" android:buttonTint="#FF10A37F" />
                 </RadioGroup>
                 <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:layout_marginTop="8dp" android:text="计算设备" android:textStyle="bold" android:textColor="#FFF5F5F5" android:textSize="15sp" />
@@ -38,7 +40,7 @@
                         android:text="仅 CPU" android:buttonTint="#FF10A37F" android:textColor="#FFECECEC" />
                 </RadioGroup>
                 <TextView android:id="@+id/tv_backend_note" android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="切换后返回主页面重新加载；不会同时加载两个翻译模型" android:textColor="#FF979AA3" android:textSize="12sp" />
+                    android:text="切换后返回主页面重新加载；只驻留当前所选翻译模型" android:textColor="#FF979AA3" android:textSize="12sp" />
             </LinearLayout>
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:layout_marginHorizontal="12dp" android:layout_marginBottom="12dp" android:padding="16dp"

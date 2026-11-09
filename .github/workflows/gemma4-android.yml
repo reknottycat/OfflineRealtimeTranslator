@@ -1,4 +1,4 @@
-name: Gemma4 + LMT Android APK
+name: Gemma4 + LMT + HY-MT2 Android APK
 on:
   pull_request:
   workflow_dispatch:
@@ -35,14 +35,14 @@ jobs:
       - name: Verify and package APK evidence
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk dist/OfflineRealtimeTranslator-Gemma4-LMT-debug.apk
+          cp app/build/outputs/apk/debug/app-debug.apk dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs dist/*.apk > dist/apk-signature.txt
           python3 scripts/ci_lmt_report.py
           sha256sum dist/*.apk > dist/SHA256SUMS.txt
       - name: APK download
         uses: actions/upload-artifact@v4
         with:
-          name: OfflineRealtimeTranslator-Gemma4-LMT-debug
+          name: OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug
           path: dist/
           if-no-files-found: error
           retention-days: 30
@@ -65,7 +65,7 @@ jobs:
       - name: Build exactly the shared LMT core used by Android JNI
         run: |
           cmake -S app/src/main/cpp/lmt -B host-build -DCMAKE_BUILD_TYPE=Release
-          cmake --build host-build --parallel 4 --target lmt-contract-tests lmt-smoke
+          cmake --build host-build --parallel 4 --target lmt-contract-tests hymt2-contract-tests lmt-smoke
           ctest --test-dir host-build --output-on-failure
       - name: Download and verify the real pinned LMT weights
         run: python3 scripts/lmt_model_smoke.py download

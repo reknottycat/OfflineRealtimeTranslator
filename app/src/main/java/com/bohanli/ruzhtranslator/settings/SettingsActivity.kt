@@ -44,7 +44,7 @@ class SettingsActivity : AppCompatActivity() {
         binding = ActivitySettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)
         binding.btnBack.setOnClickListener { finish() }
-        binding.tvVersion.text = "v3.4-alpha · Gemma 4 / NiuTrans LMT"
+        binding.tvVersion.text = "v3.5-alpha · Gemma 4 / LMT / HY-MT2"
         binding.radioAsrModel.check(if (AppSettings.asrModel == AppSettings.ASR_MODEL_LARGE)
             binding.rbAsrLarge.id else binding.rbAsrSmall.id)
         binding.radioAsrModel.setOnCheckedChangeListener { _, id ->
@@ -53,7 +53,11 @@ class SettingsActivity : AppCompatActivity() {
         binding.radioTranslationEngine.setOnCheckedChangeListener { _, id ->
             if (!rendering && !busy) {
                 customUrls.edit().putString(renderedEngine, binding.etModelUrl.text.toString()).apply()
-                AppSettings.translationEngine = if (id == binding.rbLmt.id) AppSettings.ENGINE_LMT else AppSettings.ENGINE_GEMMA4
+                AppSettings.translationEngine = when (id) {
+                    binding.rbLmt.id -> AppSettings.ENGINE_LMT
+                    binding.rbHymt2.id -> AppSettings.ENGINE_HYMT2
+                    else -> AppSettings.ENGINE_GEMMA4
+                }
                 refreshModelUi()
             }
         }
@@ -98,7 +102,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.btnRemoveModel.setOnClickListener {
             val spec = selectedModel()
             AlertDialog.Builder(this).setTitle("删除 ${spec.title}？")
-                .setMessage("仅删除此引擎的本地权重和断点文件，不影响另一个模型或翻译历史。")
+                .setMessage("仅删除此引擎的本地权重和断点文件，不影响其他模型或翻译历史。")
                 .setNegativeButton("取消", null).setPositiveButton("删除") { _, _ ->
                     startModelOperation { ModelDownloader(this, spec).deleteModel() }
                 }.show()
@@ -110,21 +114,34 @@ class SettingsActivity : AppCompatActivity() {
         rendering = true
         val spec = selectedModel()
         renderedEngine = spec.engine
-        val isLmt = spec.engine == AppSettings.ENGINE_LMT
-        binding.radioTranslationEngine.check(if (isLmt) binding.rbLmt.id else binding.rbGemma4.id)
-        binding.radioInferenceBackend.check(if (isLmt) binding.rbBackendCpu.id else when (AppSettings.inferenceBackend) {
+        val nativeCpu = spec.nativeProfile != null
+        binding.radioTranslationEngine.check(when (spec.engine) {
+            AppSettings.ENGINE_LMT -> binding.rbLmt.id
+            AppSettings.ENGINE_HYMT2 -> binding.rbHymt2.id
+            else -> binding.rbGemma4.id
+        })
+        binding.radioInferenceBackend.check(if (nativeCpu) binding.rbBackendCpu.id else when (AppSettings.inferenceBackend) {
             AppSettings.BACKEND_CPU -> binding.rbBackendCpu.id
             AppSettings.BACKEND_GPU -> binding.rbBackendGpu.id
             else -> binding.rbBackendAuto.id
         })
-        binding.tvBackendNote.text = if (isLmt)
-            "LMT 本版使用优化后的 ARM64 CPU 后端；不会把 Gemma 的 GPU 设置误标为 LMT 加速。返回主页面生效。"
-        else "Gemma 可使用 GPU 并回退 CPU。切换时先释放旧引擎，不同时驻留两套权重。"
-        binding.tvModelDescription.text = "${spec.title} · ${spec.sizeLabel}\n${spec.fileName}\n" +
-            if (isLmt) "原模型：NiuTrans；GGUF：mradermacher 社区量化。固定版本与 SHA-256。"
-            else "LiteRT-LM 权重；固定版本与 SHA-256。"
+        binding.tvBackendNote.text = when (spec.engine) {
+            AppSettings.ENGINE_HYMT2 -> "HY-MT2 使用独立的混元提示词与权重，当前为 ARM64 CPU；逐句完成后显示译文，不展示思考片段。返回主页面生效。"
+            AppSettings.ENGINE_LMT -> "LMT 本版使用优化后的 ARM64 CPU 后端；不会把 Gemma 的 GPU 设置误标为 LMT 加速。返回主页面生效。"
+            else -> "Gemma 可使用 GPU 并回退 CPU。切换时先释放旧引擎，仅驻留一套翻译权重。"
+        }
+        val attribution = when (spec.engine) {
+            AppSettings.ENGINE_HYMT2 -> "腾讯官方 GGUF；固定版本、精确字节数与 SHA-256。"
+            AppSettings.ENGINE_LMT -> "原模型：NiuTrans；GGUF：mradermacher 社区量化。固定版本与 SHA-256。"
+            else -> "LiteRT-LM 权重；固定版本与 SHA-256。"
+        }
+        binding.tvModelDescription.text = "${spec.title} · ${spec.sizeLabel}\n${spec.fileName}\n$attribution"
         binding.etModelUrl.setText(customUrls.getString(spec.engine, ""))
-        binding.btnDownloadModel.text = "下载 / 继续下载 ${if (isLmt) "LMT" else "Gemma 4"}"
+        binding.btnDownloadModel.text = "下载 / 继续下载 ${when (spec.engine) {
+            AppSettings.ENGINE_HYMT2 -> "HY-MT2"
+            AppSettings.ENGINE_LMT -> "LMT"
+            else -> "Gemma 4"
+        }}"
         binding.tvModelStatus.text = if (ModelDownloader(this, spec).installed()) "已校验安装 · 可离线使用"
             else "尚未校验安装 · 请选择来源下载或从本地导入"
         rendering = false
@@ -152,7 +169,7 @@ class SettingsActivity : AppCompatActivity() {
     private fun setBusy(value: Boolean) {
         busy = value
         listOf(binding.btnDownloadModel, binding.btnImportModel, binding.btnRemoveModel,
-            binding.spinnerModelSource, binding.etModelUrl, binding.rbGemma4, binding.rbLmt,
+            binding.spinnerModelSource, binding.etModelUrl, binding.rbGemma4, binding.rbLmt, binding.rbHymt2,
             binding.rbAsrSmall, binding.rbAsrLarge).forEach { it.isEnabled = !value }
         val canChooseDevice = !value && AppSettings.translationEngine == AppSettings.ENGINE_GEMMA4
         listOf(binding.rbBackendCpu, binding.rbBackendAuto, binding.rbBackendGpu).forEach { it.isEnabled = canChooseDevice }

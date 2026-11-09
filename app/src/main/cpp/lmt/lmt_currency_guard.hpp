@@ -51,12 +51,12 @@ inline bool mentions_rubles(const std::string& source) {
     }
     return false;
 }
-inline std::string validate_currency(const std::string& source, const std::string& output) {
+inline std::string validate_currency(const std::string& source, const std::string& output, const char* warning = currency_warning) {
     if (!mentions_rubles(source)) return output;
     const auto folded = lower_russian(output);
     const bool has_ruble = output.find("卢布") != std::string::npos ||
         output.find("盧布") != std::string::npos || output.find("₽") != std::string::npos ||
         contains_token(folded, "rub");
-    return has_ruble ? output : currency_warning;
+    return has_ruble ? output : warning;
 }
 } // namespace lmt

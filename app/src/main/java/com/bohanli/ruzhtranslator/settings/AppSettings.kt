@@ -21,6 +21,7 @@ object AppSettings {
     const val ASR_MODEL_LARGE = "vosk-model-ru-0.42"
     const val ENGINE_GEMMA4 = "gemma4"
     const val ENGINE_LMT = "lmt"
+    const val ENGINE_HYMT2 = "hymt2"
     const val BACKEND_AUTO = "auto"
     const val BACKEND_GPU = "gpu"
     const val BACKEND_CPU = "cpu"

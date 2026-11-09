@@ -14,7 +14,7 @@ for report in reports:
         totals[key] += int(root.attrib.get(key, 0))
 if totals['failures'] or totals['errors']:
     raise SystemExit(f'Unit test failure: {totals}')
-apk = Path('dist/OfflineRealtimeTranslator-Gemma4-LMT-debug.apk')
+apk = Path('dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk')
 with zipfile.ZipFile(apk) as archive:
     names = archive.namelist()
     required = ['lib/arm64-v8a/liblmt_translator.so', 'lib/arm64-v8a/liblitertlm_jni.so']
@@ -24,6 +24,6 @@ with zipfile.ZipFile(apk) as archive:
     if any(name.endswith(('.gguf', '.litertlm')) for name in names):
         raise SystemExit('Model weights must not be embedded in the APK')
 result = {'unit_tests': totals, 'native_backends_present': required, 'weights_bundled': False,
-          'phone_inference_verified': False, 'apk_bytes': apk.stat().st_size}
+          'engines': ['gemma4', 'lmt', 'hymt2'], 'phone_inference_verified': False, 'apk_bytes': apk.stat().st_size}
 Path('dist/validation.json').write_text(json.dumps(result, indent=2), encoding='utf-8')
 print(json.dumps(result, indent=2))

@@ -26,7 +26,7 @@ import kotlinx.coroutines.withContext
 
 /**
  * Compatibility facade for Vosk/TranslationQueue/metrics.
- * Engine choice is immutable per instance: Gemma4/LiteRT-LM OR LMT/llama.cpp.
+ * Engine choice is immutable per instance: Gemma4/LiteRT-LM OR distinct LMT/HY-MT2 profiles in llama.cpp.
  * A global lease prevents two translation weight sets from being resident together.
  */
 class GemmaTranslator(
@@ -72,8 +72,8 @@ class GemmaTranslator(
             try {
                 check(!closed.get()) { "Translator closed" }
                 path = model.absolutePath
-                if (engineId == AppSettings.ENGINE_LMT) {
-                    val runtime = LmtNativeEngine()
+                if (spec.nativeProfile != null) {
+                    val runtime = LmtNativeEngine(checkNotNull(spec.nativeProfile))
                     lmt = runtime
                     runtime.initialize(model)
                     actualBackend = AppSettings.BACKEND_CPU
@@ -113,9 +113,9 @@ class GemmaTranslator(
                 operation.withLock {
                     if (closed.get() || !ready) return@withLock "[翻译引擎已关闭]"
                     try {
-                        if (engineId == AppSettings.ENGINE_LMT) {
+                        if (spec.nativeProfile != null) {
                             checkNotNull(lmt).translate(text) { chunk -> emit(chunk) }
-                                .ifEmpty { "[LMT 翻译结果为空]" }
+                                .ifEmpty { "[${spec.title} 翻译结果为空]" }
                         } else generateGemma(text, true)
                     } catch (cancelled: CancellationException) {
                         throw cancelled

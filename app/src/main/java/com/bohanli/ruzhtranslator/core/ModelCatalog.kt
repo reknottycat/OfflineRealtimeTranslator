@@ -14,7 +14,9 @@ object ModelCatalog {
         val sha256: String,
         val repository: String,
         val revision: String,
-        val sizeLabel: String
+        val sizeLabel: String,
+        // Stable JNI profile IDs: 0 = Qwen3/LMT, 1 = Hunyuan Dense/HY-MT2.
+        val nativeProfile: Int? = null
     ) {
         init {
             require(Regex("[a-f0-9]{64}").matches(sha256))
@@ -34,12 +36,17 @@ object ModelCatalog {
     val LMT = Spec(AppSettings.ENGINE_LMT, "NiuTrans LMT-60-1.7B Q4_K_M", "lmt-60-1.7b-q4_k_m",
         "LMT-60-1.7B.Q4_K_M.gguf", 0L, 1_600_000_000L,
         "54c6244f100330264cef607188413ee82cb8a254f0cf950011aaa9cee74f7eb5",
-        "mradermacher/LMT-60-1.7B-GGUF", "f03d51b43463d8a457eee1cd765220de69e9bac8", "约 1.28 GB")
+        "mradermacher/LMT-60-1.7B-GGUF", "f03d51b43463d8a457eee1cd765220de69e9bac8", "约 1.28 GB", nativeProfile = 0)
+    val HYMT2 = Spec(AppSettings.ENGINE_HYMT2, "Tencent HY-MT2-1.8B Q4_K_M", "hy-mt2-1.8b-q4_k_m",
+        "Hy-MT2-1.8B-Q4_K_M.gguf", 1_133_080_448L, 1_133_080_448L,
+        "dc5f44fcf1fa496ee7ad725982c0c8c553a4de00259b53af84c4b89fb0c06699",
+        "tencent/Hy-MT2-1.8B-GGUF", "a0c709d9fac510f2c807aa3af52872340dc37a4a", "1.13 GB", nativeProfile = 1)
     // LMT's full digest binds both its exact bytes and contents; the upstream web
     // view only displayed a rounded size, so do not invent an exact byte count.
     fun forEngine(engine: String): Spec = when (engine) {
         AppSettings.ENGINE_GEMMA4 -> GEMMA4
         AppSettings.ENGINE_LMT -> LMT
+        AppSettings.ENGINE_HYMT2 -> HYMT2
         else -> throw IllegalArgumentException("Unknown translation engine: $engine")
     }
     fun sourceUrl(source: String, engine: String = AppSettings.ENGINE_GEMMA4): String? {
