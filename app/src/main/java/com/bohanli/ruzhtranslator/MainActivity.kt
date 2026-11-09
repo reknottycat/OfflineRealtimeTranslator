@@ -47,7 +47,7 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "MainActivity"
         private const val MODEL_RECASEPUNC  = "vosk-recasepunc-ru-0.22"
-        private const val MODEL_GEMMA       = "gemma-3-4b-it-Q4_K_M"
+        private const val MODEL_GEMMA       = "gemma-4-E2B-it-litert-lm"
 
         // 16 bright rainbow colors for dark backgrounds, no white
         private val SEGMENT_COLORS = intArrayOf(
@@ -85,6 +85,8 @@ class MainActivity : AppCompatActivity() {
 
     // Current ASR model name (mirrors AppSettings.asrModel, synced on resume)
     private var currentAsrModel = AppSettings.ASR_MODEL_SMALL
+    private var currentTranslationEngine = AppSettings.ENGINE_GEMMA4
+    private var currentInferenceBackend = AppSettings.BACKEND_AUTO
 
     // Guard so rapid Settings toggles don't stack parallel reloads
     private val asrSwitchInFlight = AtomicBoolean(false)
@@ -126,35 +128,28 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         currentAsrModel = AppSettings.asrModel
+        currentTranslationEngine = AppSettings.translationEngine
+        currentInferenceBackend = AppSettings.inferenceBackend
 
         setupUi()
         maybeLoadModels()
     }
 
     private fun maybeLoadModels() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
-            !Environment.isExternalStorageManager()) {
-            updateStatus(AppStatus.Loading("等待授予「所有文件访问权限」..."))
-            val intent = try {
-                Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
-                    data = Uri.parse("package:$packageName")
-                }
-            } catch (_: Exception) {
-                Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
-            }
-            try {
-                allFilesAccessLauncher.launch(intent)
-            } catch (e: Exception) {
-                Log.w(TAG, "Could not launch All-files-access settings: ${e.message}")
-                loadModels()
-            }
-            return
-        }
+        // App-private models work without invasive all-files permission.
+        // Retain legacy public-directory lookup only if user has granted it.
         loadModels()
     }
 
     override fun onResume() {
         super.onResume()
+        if (gemmaTranslator != null &&
+            (AppSettings.translationEngine != currentTranslationEngine ||
+             AppSettings.inferenceBackend != currentInferenceBackend)) {
+            // Restart cleanly instead of replacing an engine during an in-flight queue item.
+            recreate()
+            return
+        }
         // Sync ASR model if user changed it in Settings while away
         val pref = AppSettings.asrModel
         if (pref != currentAsrModel && voskAsr != null) {
@@ -396,6 +391,9 @@ class MainActivity : AppCompatActivity() {
                     val gemmaDeferred = async(Dispatchers.IO) {
                         val dir = ModelManager.getModelDir(this@MainActivity, MODEL_GEMMA)
                         if (dir == null) Log.w(TAG, "Gemma model not found")
+                        check(AppSettings.translationEngine == AppSettings.ENGINE_GEMMA4) {
+                            "LMT backend is not installed; choose Gemma 4 in Settings."
+                        }
                         val translator = GemmaTranslator()
                         if (dir != null) translator.initialize(dir)
                         val n = loadedCount.incrementAndGet()
