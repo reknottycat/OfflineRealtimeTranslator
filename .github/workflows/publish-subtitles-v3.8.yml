@@ -1,0 +1,54 @@
+name: Publish v3.8 subtitle autosave APK to GitHub direct branch
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-subtitles-v3.8.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/subtitle-autosave-follow-v3-8
+          submodules: recursive
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK NDK CMake
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKMGR="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | head -n 1)"
+          test -x "$SDKMGR"
+          "$SDKMGR" --install "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358" "cmake;3.22.1"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Test lint and build APK
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon --max-workers=4 :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+      - name: Verify APK and capture build evidence
+        run: |
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | grep "versionName='3.8-alpha-subtitle-autosave'"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK"
+          unzip -t "$APK" >/dev/null
+          cp "$APK" "$RUNNER_TEMP/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-Vosk-Autosave-v3.8-debug.apk"
+      - name: Push direct download APK preserving previous builds
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin apk-downloads:refs/remotes/origin/apk-downloads
+          git restore --source=HEAD --staged --worktree gradlew
+          git checkout -B apk-downloads refs/remotes/origin/apk-downloads
+          NAME=OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-Vosk-Autosave-v3.8-debug.apk
+          cp "$RUNNER_TEMP/$NAME" "$NAME"
+          sha256sum "$NAME" > Autosave-v3.8-SHA256SUMS.txt
+          git add "$NAME" Autosave-v3.8-SHA256SUMS.txt
+          git commit -m "release: publish v3.8 autosave subtitles and follow-to-live APK"
+          git push origin HEAD:refs/heads/apk-downloads
