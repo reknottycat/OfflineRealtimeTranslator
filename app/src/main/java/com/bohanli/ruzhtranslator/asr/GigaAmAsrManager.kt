@@ -41,7 +41,8 @@ class GigaAmAsrManager(
     private val modelDirectory: File,
     private val onPartial: (String) -> Unit,
     private val onFinalResult: (String) -> Unit,
-    private val onError: (String) -> Unit
+    private val onError: (String) -> Unit,
+    private val onIdle: () -> Unit = {}
 ) : AsrEngine {
     companion object {
         private const val TAG = "GigaAmAsrManager"
@@ -57,6 +58,7 @@ class GigaAmAsrManager(
     private val jobs = Channel<DecodeRequest>(Channel.UNLIMITED)
     private val epoch = AtomicInteger(0)
     private val decoderBusy = AtomicBoolean(false)
+    private val pendingDecode = AtomicInteger(0)
     @Volatile private var running = false
     @Volatile private var shuttingDown = false
     @Volatile private var currentAudio: AudioRecord? = null
@@ -101,17 +103,48 @@ class GigaAmAsrManager(
         }
     }
 
+    override fun hasPendingResults(): Boolean =
+        (captureJob?.isActive == true) || pendingDecode.get() > 0
+
     override fun startListening() {
         if (shuttingDown || recognizer == null) {
             scope.launch(Dispatchers.Main) { onError("GigaAM 引擎未就绪，请在设置中下载模型") }
             return
         }
-        if (captureJob?.isActive == true) {
-            scope.launch(Dispatchers.Main) { onError("上一段 GigaAM 录音还在结束，请稍后再次点击") }
+        if (hasPendingResults()) {
+            scope.launch(Dispatchers.Main) {
+                onError("上一段 GigaAM 还在完成最终识别，字幕已排队保存，请稍后继续")
+            }
             return
         }
         running = true
-        captureJob = scope.launch { recordLoop(epoch.incrementAndGet()) }
+        captureJob = scope.launch { recordLoop(epoch.incrementAndGet()) }.also { active ->
+            active.invokeOnCompletion { notifyIdleIfReady() }
+        }
+    }
+
+    private fun notifyIdleIfReady() {
+        if (!shuttingDown && !running && !hasPendingResults()) {
+            scope.launch(Dispatchers.Main) { if (!shuttingDown) onIdle() }
+        }
+    }
+
+    private suspend fun sendFinal(samples: FloatArray, session: Int) {
+        pendingDecode.incrementAndGet()
+        try { jobs.send(DecodeRequest(samples, true, session)) }
+        catch (failure: Throwable) {
+            pendingDecode.decrementAndGet()
+            throw failure
+        }
+    }
+
+    private fun queuePartial(samples: FloatArray, session: Int) {
+        // Running offline ASR multiple times concurrently adds latency rather than value.
+        if (pendingDecode.get() > 0 || decoderBusy.get()) return
+        pendingDecode.incrementAndGet()
+        if (jobs.trySend(DecodeRequest(samples, false, session)).isFailure) {
+            pendingDecode.decrementAndGet()
+        }
     }
 
     override fun stopListening() {
@@ -202,7 +235,7 @@ class GigaAmAsrManager(
                     (count >= SAMPLE_RATE && silenceSamples >= END_SILENCE)
                 if (endpoint) {
                     if (voicedSamples >= MIN_UTTERANCE) {
-                        jobs.send(DecodeRequest(utterance.copyOf(count), true, session))
+                        sendFinal(utterance.copyOf(count), session)
                     }
                     count = 0
                     voicedSamples = 0
@@ -212,7 +245,7 @@ class GigaAmAsrManager(
                     count >= SAMPLE_RATE * 2 && sincePartial >= PARTIAL_INTERVAL &&
                     !decoderBusy.get()) {
                     sincePartial = 0
-                    jobs.trySend(DecodeRequest(utterance.copyOf(count), false, session))
+                    queuePartial(utterance.copyOf(count), session)
                 }
             }
         } catch (cancelled: CancellationException) {
@@ -225,7 +258,10 @@ class GigaAmAsrManager(
             }
         } finally {
             if (!shuttingDown && voicedSamples >= MIN_UTTERANCE && count > 0) {
-                jobs.trySend(DecodeRequest(utterance.copyOf(count), true, session))
+                pendingDecode.incrementAndGet()
+                if (jobs.trySend(DecodeRequest(utterance.copyOf(count), true, session)).isFailure) {
+                    pendingDecode.decrementAndGet()
+                }
             }
             try { recorder.stop() } catch (_: Exception) {}
             recorder.release()
@@ -237,7 +273,11 @@ class GigaAmAsrManager(
     private suspend fun decodeLoop() {
         val worker = recognizer ?: return
         for (request in jobs) {
-            if (request.epoch != epoch.get() || shuttingDown) continue
+            if (request.epoch != epoch.get() || shuttingDown) {
+                pendingDecode.decrementAndGet()
+                notifyIdleIfReady()
+                continue
+            }
             decoderBusy.set(true)
             try {
                 val stream = worker.createStream()
@@ -265,6 +305,8 @@ class GigaAmAsrManager(
                 }
             } finally {
                 decoderBusy.set(false)
+                pendingDecode.decrementAndGet()
+                notifyIdleIfReady()
             }
         }
     }
