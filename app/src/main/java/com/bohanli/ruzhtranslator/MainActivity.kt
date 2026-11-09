@@ -10,6 +10,8 @@ import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import android.util.Log
 import android.view.View
+import android.view.MotionEvent
+import android.widget.ScrollView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -21,7 +23,7 @@ import com.bohanli.ruzhtranslator.core.ModelManager
 import com.bohanli.ruzhtranslator.databinding.ActivityMainBinding
 import com.bohanli.ruzhtranslator.history.AppDatabase
 import com.bohanli.ruzhtranslator.history.HistoryActivity
-import com.bohanli.ruzhtranslator.history.TranslationRecord
+import com.bohanli.ruzhtranslator.history.SubtitleAutosaveWriter
 import com.bohanli.ruzhtranslator.settings.AppSettings
 import com.bohanli.ruzhtranslator.settings.SettingsActivity
 import com.bohanli.ruzhtranslator.translation.GemmaTranslator
@@ -70,6 +72,10 @@ class MainActivity : AppCompatActivity() {
     private var currentModelGeneration = 0
     private var settingsOpened = false
     private var sessionEpoch = 0
+    private var pendingAsrResults = 0
+    private var subtitleSaver: SubtitleAutosaveWriter? = null
+    private var russianScrollPosted = false
+    private var chineseScrollPosted = false
     private val russianSegments = mutableListOf<String>()
     private val chineseSegments = mutableListOf<String>()
     private var autoScrollRussian = true
@@ -107,7 +113,9 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         sessionEpoch++
         modelsLoading?.cancel()
-        saveSessionToHistorySync()
+        saveSubtitleSnapshot()
+        subtitleSaver?.close()
+        subtitleSaver = null
         isListening = false
         isPaused = false
         TranslatorHolder.set(null)
@@ -135,6 +143,14 @@ class MainActivity : AppCompatActivity() {
         }
         binding.btnSettings.setOnClickListener {
             // No active recorder, queue or translator may keep running while model files are managed.
+            if (lastPartial.isNotBlank()) {
+                appendRussianSegment(lastPartial)
+                lastPartial = ""
+                updateRussianDisplay()
+            }
+            saveSubtitleSnapshot()
+            subtitleSaver?.close()
+            subtitleSaver = null
             settingsOpened = true
             sessionEpoch++
             modelsLoading?.cancel()
@@ -149,29 +165,71 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
         binding.btnScrollBottomRu.setOnClickListener {
-            binding.scrollViewRussian.fullScroll(View.FOCUS_DOWN)
-            autoScrollRussian = true
-            binding.btnScrollBottomRu.visibility = View.GONE
+            setRussianFollow(true)
+            scrollRussianToLatest()
         }
         binding.btnScrollBottomZh.setOnClickListener {
-            binding.scrollViewChinese.fullScroll(View.FOCUS_DOWN)
-            autoScrollChinese = true
-            binding.btnScrollBottomZh.visibility = View.GONE
+            setChineseFollow(true)
+            scrollChineseToLatest()
         }
-        setupSmartScroll(binding.scrollViewRussian, { autoScrollRussian }, { autoScrollRussian = it }, binding.btnScrollBottomRu)
-        setupSmartScroll(binding.scrollViewChinese, { autoScrollChinese }, { autoScrollChinese = it }, binding.btnScrollBottomZh)
+        binding.tvFollowRu.setOnClickListener {
+            setRussianFollow(!autoScrollRussian)
+            if (autoScrollRussian) scrollRussianToLatest()
+        }
+        binding.tvFollowZh.setOnClickListener {
+            setChineseFollow(!autoScrollChinese)
+            if (autoScrollChinese) scrollChineseToLatest()
+        }
+        setupSmartScroll(binding.scrollViewRussian, ::setRussianFollow)
+        setupSmartScroll(binding.scrollViewChinese, ::setChineseFollow)
+        setRussianFollow(true)
+        setChineseFollow(true)
+        binding.tvAutosaveStatus.text = "自动保存已开启 · 识别完成即存入历史"
     }
 
-    private fun setupSmartScroll(scrollView: android.widget.ScrollView, getAutoScroll: () -> Boolean,
-                                 setAutoScroll: (Boolean) -> Unit, scrollBtn: View) {
-        scrollView.setOnScrollChangeListener { v, _, scrollY, _, _ ->
-            val sv = v as android.widget.ScrollView
-            val child = sv.getChildAt(0) ?: return@setOnScrollChangeListener
-            if (scrollY + sv.height >= child.height - 50) {
-                setAutoScroll(true); scrollBtn.visibility = View.GONE
-            } else if (getAutoScroll()) {
-                setAutoScroll(false); scrollBtn.visibility = View.VISIBLE
+    private fun setRussianFollow(enabled: Boolean) {
+        autoScrollRussian = enabled
+        binding.tvFollowRu.text = if (enabled) "● 自动跟随" else "跟随已暂停 · 点击恢复"
+        binding.btnScrollBottomRu.visibility = if (enabled) View.GONE else View.VISIBLE
+    }
+    private fun setChineseFollow(enabled: Boolean) {
+        autoScrollChinese = enabled
+        binding.tvFollowZh.text = if (enabled) "● 自动跟随" else "跟随已暂停 · 点击恢复"
+        binding.btnScrollBottomZh.visibility = if (enabled) View.GONE else View.VISIBLE
+    }
+    private fun scrollRussianToLatest() {
+        if (russianScrollPosted) return
+        russianScrollPosted = true
+        binding.scrollViewRussian.post {
+            russianScrollPosted = false
+            if (autoScrollRussian) binding.scrollViewRussian.fullScroll(View.FOCUS_DOWN)
+        }
+    }
+    private fun scrollChineseToLatest() {
+        if (chineseScrollPosted) return
+        chineseScrollPosted = true
+        binding.scrollViewChinese.post {
+            chineseScrollPosted = false
+            if (autoScrollChinese) binding.scrollViewChinese.fullScroll(View.FOCUS_DOWN)
+        }
+    }
+
+    /** Only a genuine user drag may pause follow; layout/stream updates must not. */
+    private fun setupSmartScroll(scrollView: ScrollView, changeFollow: (Boolean) -> Unit) {
+        var userDragging = false
+        scrollView.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> userDragging = true
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> userDragging = false
             }
+            false // keep native scrolling, text selection, and accessibility
+        }
+        scrollView.setOnScrollChangeListener { v, _, y, _, previousY ->
+            if (!userDragging || y == previousY) return@setOnScrollChangeListener
+            val sv = v as ScrollView
+            val child = sv.getChildAt(0) ?: return@setOnScrollChangeListener
+            val atBottom = y + sv.height >= child.height - (20 * resources.displayMetrics.density)
+            changeFollow(atBottom)
         }
     }
 
@@ -231,7 +289,7 @@ class MainActivity : AppCompatActivity() {
                         if (busy) updateStatus(AppStatus.Translating)
                         else if (isPaused) updateStatus(AppStatus.Paused)
                         else if (isListening) updateStatus(AppStatus.Listening)
-                        else updateStatus(AppStatus.Ready)
+                        else refreshStoppedState()
                     })
                 complete = true
                 binding.btnStartStop.isEnabled = translator.isAvailable()
@@ -256,7 +314,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onVoskPartial(partial: String) {
-        if (settingsOpened || isDestroyed) return
+        if (settingsOpened || isDestroyed || !isListening || isPaused) return
         lastPartial = partial
         updateRussianDisplay(partial)
     }
@@ -267,13 +325,21 @@ class MainActivity : AppCompatActivity() {
         val rcp = recasepunc
         val queue = translationQueue
         val epoch = sessionEpoch
+        pendingAsrResults++
         mainScope.launch {
-            val processed = withContext(Dispatchers.IO) {
-                rcp?.takeIf { it.isAvailable() }?.process(rawText) ?: rawText
+            try {
+                val processed = withContext(Dispatchers.IO) {
+                    rcp?.takeIf { it.isAvailable() }?.process(rawText) ?: rawText
+                }
+                if (epoch == sessionEpoch && !settingsOpened && processed.isNotBlank()) {
+                    appendRussianSegment(processed) // Auto-save now, not when Activity is destroyed.
+                    updateRussianDisplay()
+                    queue?.submit(processed)
+                }
+            } finally {
+                pendingAsrResults = (pendingAsrResults - 1).coerceAtLeast(0)
+                refreshStoppedState()
             }
-            if (epoch != sessionEpoch || settingsOpened) return@launch
-            if (processed.isNotBlank()) { appendRussianSegment(processed); queue?.submit(processed) }
-            updateRussianDisplay()
         }
     }
     private fun requestMic() {
@@ -287,8 +353,13 @@ class MainActivity : AppCompatActivity() {
     private fun startListening() {
         if (settingsOpened || gemmaTranslator?.isAvailable() != true) return
         val asr = voskAsr ?: run { updateStatus(AppStatus.Error("语音识别引擎未就绪")); return }
-        sessionEpoch++
+        // Starting a new recording must not discard translations still finishing.
+        if (pendingAsrResults > 0 || translationQueue?.hasPending() == true) {
+            updateStatus(AppStatus.Loading("请等待上一段翻译完成，字幕正自动保存"))
+            return
+        }
         saveSessionToHistory()
+        sessionEpoch++
         isListening = true; isPaused = false
         asr.startListening()
         updateStatus(AppStatus.Listening)
@@ -307,7 +378,8 @@ class MainActivity : AppCompatActivity() {
             appendRussianSegment(text); translationQueue?.submit(text)
         }
         updateRussianDisplay()
-        updateStatus(AppStatus.Ready)
+        saveSubtitleSnapshot()
+        refreshStoppedState()
         binding.btnStartStop.setImageResource(R.drawable.ic_play_arrow)
         binding.btnStartStop.setBackgroundResource(R.drawable.bg_circle_button_start)
         binding.btnPauseResume.visibility = View.GONE
@@ -320,6 +392,7 @@ class MainActivity : AppCompatActivity() {
             appendRussianSegment(text); translationQueue?.submit(text)
             updateRussianDisplay()
         }
+        saveSubtitleSnapshot()
         translationQueue?.pause()
         updateStatus(AppStatus.Paused)
         binding.btnPauseResume.setImageResource(R.drawable.ic_play_arrow)
@@ -336,35 +409,56 @@ class MainActivity : AppCompatActivity() {
         binding.btnPauseResume.setBackgroundResource(R.drawable.bg_circle_button_pause)
     }
     private fun saveSessionToHistory() {
-        if (russianSegments.isEmpty() && chineseSegments.isEmpty()) return
-        translationQueue?.clear()
+        // End the previous session; accepted snapshots drain in order on the IO worker.
+        saveSubtitleSnapshot()
+        subtitleSaver?.close()
+        subtitleSaver = null
+        lastPartial = ""
         streamingText.clear()
-        if (russianSegments.isNotEmpty() && chineseSegments.isNotEmpty()) {
-            val ruText = russianSegments.joinToString("\n")
-            val zhText = chineseSegments.joinToString("\n")
-            mainScope.launch { withContext(Dispatchers.IO) {
-                db.translationDao().insert(TranslationRecord(ruText = ruText, zhText = zhText))
-            } }
-        }
-        russianSegments.clear(); chineseSegments.clear()
-        binding.tvRussianHistory.text = ""; binding.tvChineseHistory.text = ""
+        russianSegments.clear()
+        chineseSegments.clear()
+        binding.tvRussianHistory.text = ""
+        binding.tvChineseHistory.text = ""
+        binding.tvAutosaveStatus.text = "自动保存已开启 · 新一段字幕"
+        setRussianFollow(true)
+        setChineseFollow(true)
     }
-    private fun saveSessionToHistorySync() {
-        if (russianSegments.isEmpty() || chineseSegments.isEmpty()) return
-        val ruText = russianSegments.joinToString("\n")
-        val zhText = chineseSegments.joinToString("\n")
-        try {
-            kotlinx.coroutines.runBlocking(Dispatchers.IO) {
-                db.translationDao().insert(TranslationRecord(ruText = ruText, zhText = zhText))
+
+    /** Save ASR finals even if translation has not yet produced a Chinese line. */
+    private fun saveSubtitleSnapshot() {
+        if (russianSegments.isEmpty() && chineseSegments.isEmpty()) return
+        val writer = subtitleSaver ?: SubtitleAutosaveWriter(
+            db.translationDao(),
+            onSaved = {
+                if (!isDestroyed && !isFinishing) binding.tvAutosaveStatus.text = "✓ 字幕已自动保存至历史"
+            },
+            onFailure = {
+                if (!isDestroyed && !isFinishing)
+                    binding.tvAutosaveStatus.text = "保存失败：请检查设备存储空间"
             }
-        } catch (e: Exception) { Log.e(TAG, "Failed to save session", e) }
-        russianSegments.clear(); chineseSegments.clear()
+        ).also { subtitleSaver = it }
+        if (writer.capture(russianSegments.joinToString("\n"), chineseSegments.joinToString("\n"))) {
+            binding.tvAutosaveStatus.text = "正在自动保存字幕..."
+        }
     }
+
+    private fun refreshStoppedState() {
+        if (settingsOpened || isListening || isPaused || isDestroyed) return
+        val pending = pendingAsrResults > 0 || translationQueue?.hasPending() == true
+        val ready = !pending && gemmaTranslator?.isAvailable() == true
+        binding.btnStartStop.isEnabled = ready
+        binding.btnStartStop.alpha = if (ready) 0.75f else 0.4f
+        updateStatus(if (pending) AppStatus.Loading("正在收尾翻译，完成后自动保存") else AppStatus.Ready)
+    }
+
     private fun updateStatus(status: AppStatus) {
         if (!isDestroyed && !settingsOpened) binding.tvStatus.text =
             "${ModelCatalog.forEngine(currentTranslationEngine).title} · ${status.toDisplayString()}"
     }
-    private fun appendRussianSegment(text: String) { russianSegments.add(text) }
+    private fun appendRussianSegment(text: String) {
+        russianSegments.add(text)
+        saveSubtitleSnapshot()
+    }
     private fun updateRussianDisplay(partial: String = "") {
         val ssb = SpannableStringBuilder()
         for ((i, segment) in russianSegments.withIndex()) {
@@ -378,11 +472,16 @@ class MainActivity : AppCompatActivity() {
             ssb.setSpan(ForegroundColorSpan(Color.parseColor("#FF888888")), start, ssb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
         binding.tvRussianHistory.text = ssb
-        if (autoScrollRussian) binding.scrollViewRussian.post { binding.scrollViewRussian.fullScroll(View.FOCUS_DOWN) }
+        scrollRussianToLatest()
     }
     private fun startChineseStream() { streamingText.clear() }
     private fun appendStreamToken(token: String) { streamingText.append(token); updateChineseDisplay(streamingText.toString()) }
-    private fun finalizeChinese(text: String) { streamingText.clear(); chineseSegments.add(text); updateChineseDisplay(null) }
+    private fun finalizeChinese(text: String) {
+        streamingText.clear()
+        chineseSegments.add(text)
+        saveSubtitleSnapshot()
+        updateChineseDisplay(null)
+    }
     private fun updateChineseDisplay(streaming: String?) {
         val ssb = SpannableStringBuilder()
         for ((i, segment) in chineseSegments.withIndex()) {
@@ -396,6 +495,6 @@ class MainActivity : AppCompatActivity() {
             ssb.setSpan(ForegroundColorSpan(SEGMENT_COLORS[chineseSegments.size % SEGMENT_COLORS.size]), start, ssb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
         binding.tvChineseHistory.text = ssb
-        if (autoScrollChinese) binding.scrollViewChinese.post { binding.scrollViewChinese.fullScroll(View.FOCUS_DOWN) }
+        scrollChineseToLatest()
     }
 }
