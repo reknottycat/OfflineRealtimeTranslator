@@ -1,0 +1,42 @@
+name: Publish tested Vosk v3.9 preview APK as direct download
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-tested-vosk-v3.9.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve exact Android-tested v3.9 preview APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/v39"
+          gh run download 42715894881 -R "$GITHUB_REPOSITORY" \
+            -n OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-Vosk-Fix-v3.9-preview \
+            -D "$RUNNER_TEMP/v39"
+          NAME=OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-Vosk-Fix-v3.9-preview.apk
+          cd "$RUNNER_TEMP/v39"
+          test -s "$NAME"
+          echo "0f1cc63ebe01b4cad277e6c8f15f501c3af42ce00252743a0512983201ceed2d  $NAME" | sha256sum -c -
+          unzip -t "$NAME" >/dev/null
+      - name: Push APK into permanent apk-downloads branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin apk-downloads:refs/remotes/origin/apk-downloads
+          git checkout -B apk-downloads refs/remotes/origin/apk-downloads
+          NAME=OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-Vosk-Fix-v3.9-preview.apk
+          cp "$RUNNER_TEMP/v39/$NAME" .
+          sha256sum "$NAME" > Vosk-Fix-v3.9-SHA256SUMS.txt
+          git add "$NAME" Vosk-Fix-v3.9-SHA256SUMS.txt
+          git commit -m "release: publish verified v3.9 ZIP diagnostics and side-by-side preview APK"
+          git push origin HEAD:refs/heads/apk-downloads
