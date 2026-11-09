@@ -11,8 +11,8 @@ android {
         applicationId = "com.bohanli.ruzhtranslator"
         minSdk = 29
         targetSdk = 36
-        versionCode = 38
-        versionName = "3.8-alpha-subtitle-autosave"
+        versionCode = 39
+        versionName = "3.9-alpha-vosk-fix"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += "arm64-v8a" }
         externalNativeBuild {
@@ -21,6 +21,12 @@ android {
     }
     signingConfigs { getByName("debug") }
     buildTypes {
+        // CI generates a fresh Android debug key each run. Old v3.7/v3.8 packages
+        // therefore cannot safely be upgraded in place. Use a distinct preview
+        // application ID so the user can preserve the original app and its history.
+        debug {
+            applicationIdSuffix = ".preview"
+        }
         release {
             isMinifyEnabled = false
             signingConfig = signingConfigs.getByName("debug")
