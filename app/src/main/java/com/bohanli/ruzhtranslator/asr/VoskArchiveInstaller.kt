@@ -1,0 +1,321 @@
+package com.bohanli.ruzhtranslator.asr
+
+import android.content.Context
+import android.net.Uri
+import com.bohanli.ruzhtranslator.settings.AppSettings
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
+import java.net.HttpURLConnection
+import java.net.URL
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.security.MessageDigest
+import java.util.zip.CRC32
+import java.util.zip.ZipFile
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+
+/**
+ * Safely install a zipped Vosk model in app-private storage.
+ *
+ * - Resumes via HTTP Range, rotates HTTPS sources and never mixes a 200 response
+ *   into a partial file.
+ * - Small is authenticated with the HF LFS SHA-256; Large has no confirmed
+ *   publisher SHA-256, so it is restricted to HTTPS + exact size + ZIP CRCs
+ *   + required Vosk structure (a weaker guarantee, disclosed in the UI).
+ * - Extraction is transactional and bounded to stop zip-slip and zip bombs.
+ * - Partial archives survive cancellation; switching the active model never
+ *   deletes the old model or history.
+ */
+class VoskArchiveInstaller(
+    context: Context,
+    val spec: VoskModelCatalog.Spec
+) {
+    data class Progress(val bytes: Long, val total: Long, val stage: String)
+    companion object { private val modelLock = Mutex() }
+    private val app = context.applicationContext
+    private val modelsRoot = File(app.filesDir, "models")
+    private val destination = File(modelsRoot, spec.id)
+    private val workDir = File(app.filesDir, "vosk_downloads")
+    private val partial = File(workDir, spec.archiveName + ".part")
+    private val importFile = File(workDir, spec.archiveName + ".import")
+    private val staging = File(modelsRoot, "." + spec.id + ".installing")
+    private val previous = File(modelsRoot, "." + spec.id + ".backup")
+
+    fun installed(): Boolean = isValidVoskDirectory(destination)
+
+    suspend fun download(urls: List<String>, report: (Progress) -> Unit) = withContext(Dispatchers.IO) {
+        modelLock.withLock {
+            require(urls.isNotEmpty()) { "没有可用的下载源" }
+            urls.forEach { require(URL(it).protocol.equals("https", true)) { "仅允许 HTTPS 模型源" } }
+            makeDirectories()
+            if (installed()) return@withLock
+            ensureSpace()
+            if (partial.length() == spec.archiveBytes) {
+                if (!verifyArchive(partial, report)) partial.delete()
+                else { unpackAndInstall(partial, report); return@withLock }
+            }
+            var error: Exception? = null
+            for ((index, source) in urls.withIndex()) {
+                currentCoroutineContext().ensureActive()
+                try {
+                    report(Progress(partial.length(), spec.archiveBytes,
+                        "下载来源 " + (index + 1) + "/" + urls.size + " · " + URL(source).host))
+                    fetch(source, report)
+                    if (!verifyArchive(partial, report)) {
+                        partial.delete()
+                        throw IOException("SHA-256 或 ZIP 文件检查未通过")
+                    }
+                    unpackAndInstall(partial, report)
+                    return@withLock
+                } catch (cancelled: CancellationException) { throw cancelled }
+                catch (e: Exception) {
+                    error = e
+                    report(Progress(partial.length(), spec.archiveBytes,
+                        "来源失败：" + (e.message ?: e.javaClass.simpleName) + "，尝试备用源"))
+                }
+            }
+            throw IOException("下载失败，已保留可恢复的断点：" + (error?.message ?: "未知原因"))
+        }
+    }
+
+    suspend fun importZip(uri: Uri, report: (Progress) -> Unit) = withContext(Dispatchers.IO) {
+        modelLock.withLock {
+            makeDirectories()
+            ensureSpace()
+            importFile.delete()
+            try {
+                app.contentResolver.openInputStream(uri).use { input ->
+                    requireNotNull(input) { "无法读取选择的 ZIP 文件" }
+                    FileOutputStream(importFile).use { output ->
+                        val buffer = ByteArray(256 * 1024)
+                        var total = 0L
+                        while (true) {
+                            currentCoroutineContext().ensureActive()
+                            val n = input.read(buffer)
+                            if (n < 0) break
+                            total += n
+                            require(total <= spec.archiveBytes) { "文件超出所选模型的固定大小" }
+                            output.write(buffer, 0, n)
+                            report(Progress(total, spec.archiveBytes, "导入 Vosk ZIP"))
+                        }
+                        output.fd.sync()
+                    }
+                }
+                check(verifyArchive(importFile, report)) { "ZIP 大小或校验不符：请选择正确的 Small/Large 模型压缩包" }
+                unpackAndInstall(importFile, report)
+            } finally { importFile.delete() }
+        }
+    }
+
+    suspend fun remove() = withContext(Dispatchers.IO) {
+        modelLock.withLock {
+            // Never delete public Downloads or other apps' models.
+            require(!previous.exists()) { "检测到安装备份，请先人工检查以避免数据丢失" }
+            destination.deleteRecursively()
+            partial.delete()
+            importFile.delete()
+            AppSettings.notifyModelsChanged()
+        }
+    }
+
+    private fun makeDirectories() {
+        check((modelsRoot.isDirectory || modelsRoot.mkdirs()) &&
+            (workDir.isDirectory || workDir.mkdirs())) { "无法创建模型目录" }
+    }
+
+    private fun ensureSpace() {
+        val remainder = (spec.archiveBytes - partial.length()).coerceAtLeast(0)
+        val minimum = remainder + spec.estimatedExpandedBytes + 64L * 1024 * 1024
+        check(workDir.usableSpace >= minimum) {
+            "存储空间不足：下载、解压该模型至少还需要约 " +
+                (minimum / 1024 / 1024) + " MiB 可用空间"
+        }
+    }
+
+    private suspend fun fetch(source: String, report: (Progress) -> Unit) {
+        val start = partial.length()
+        if (start > spec.archiveBytes) partial.delete()
+        val offset = partial.length()
+        val conn = URL(source).openConnection() as HttpURLConnection
+        conn.connectTimeout = 12_000
+        conn.readTimeout = 20_000
+        conn.instanceFollowRedirects = true
+        conn.setRequestProperty("Accept-Encoding", "identity")
+        conn.setRequestProperty("User-Agent", "OfflineRealtimeTranslator/Vosk-ASR-Manager")
+        if (offset > 0) conn.setRequestProperty("Range", "bytes=" + offset + "-")
+        try {
+            val status = conn.responseCode
+            check(conn.url.protocol.equals("https", true)) { "下载被重定向到非 HTTPS 地址" }
+            check(status == 200 || status == 206) { "HTTP " + status }
+            check(conn.contentEncoding == null || conn.contentEncoding.equals("identity", true)) {
+                "下载源意外压缩了传输数据"
+            }
+            val range = conn.getHeaderField("Content-Range")
+            val append = status == 206
+            val announcedBytes: Long
+            if (append) {
+                val m = Regex("^bytes (\\d+)-(\\d+)/(\\d+)$").matchEntire(range ?: "")
+                    ?: throw IOException("无效 Content-Range")
+                val rangeStart = m.groupValues[1].toLong()
+                val rangeEnd = m.groupValues[2].toLong()
+                val remoteSize = m.groupValues[3].toLong()
+                check(remoteSize == spec.archiveBytes && rangeStart == offset &&
+                    rangeEnd >= rangeStart && rangeEnd < spec.archiveBytes) {
+                    "分块范围不匹配，拒绝写入断点"
+                }
+                announcedBytes = rangeEnd - rangeStart + 1
+            } else {
+                // Some servers ignore Range: restart the file instead of appending.
+                announcedBytes = spec.archiveBytes
+            }
+            if (conn.contentLengthLong >= 0) {
+                check(conn.contentLengthLong == announcedBytes) { "下载文件大小与记录不一致" }
+            }
+            conn.inputStream.use { input ->
+                FileOutputStream(partial, append).use { output ->
+                    val buffer = ByteArray(256 * 1024)
+                    var count = if (append) offset else 0L
+                    var responseCount = 0L
+                    while (true) {
+                        currentCoroutineContext().ensureActive()
+                        val n = input.read(buffer)
+                        if (n < 0) break
+                        count += n
+                        responseCount += n
+                        check(count <= spec.archiveBytes && responseCount <= announcedBytes) {
+                            "响应超出模型固定大小"
+                        }
+                        output.write(buffer, 0, n)
+                        if (count % (1024 * 1024) < n || count == spec.archiveBytes) {
+                            report(Progress(count, spec.archiveBytes, "下载 Vosk · " + conn.url.host))
+                        }
+                    }
+                    output.fd.sync()
+                    check(responseCount == announcedBytes) { "网络提前中断，可继续下载" }
+                }
+            }
+            check(partial.length() == spec.archiveBytes) { "文件尚未完整，可继续下载" }
+        } finally { conn.disconnect() }
+    }
+
+    private suspend fun verifyArchive(file: File, report: (Progress) -> Unit): Boolean {
+        if (!file.isFile || file.length() != spec.archiveBytes) return false
+        val trustedHash = spec.archiveSha256 ?: return true
+        val digest = MessageDigest.getInstance("SHA-256")
+        var bytes = 0L
+        file.inputStream().use { input ->
+            val buffer = ByteArray(512 * 1024)
+            while (true) {
+                currentCoroutineContext().ensureActive()
+                val n = input.read(buffer)
+                if (n < 0) break
+                digest.update(buffer, 0, n)
+                bytes += n
+                if (bytes % (16L * 1024 * 1024) < n) {
+                    report(Progress(bytes, spec.archiveBytes, "校验 ZIP SHA-256"))
+                }
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) } == trustedHash
+    }
+
+    private suspend fun unpackAndInstall(archive: File, report: (Progress) -> Unit) {
+        if (installed()) { archive.delete(); return }
+        check(!previous.exists()) { "安装备份存在：未覆盖旧模型，请人工检查" }
+        staging.deleteRecursively()
+        check(staging.mkdirs()) { "无法创建临时解压目录" }
+        try {
+            val requiredRoot = spec.id + "/"
+            val visited = HashSet<String>()
+            var expanded = 0L
+            var count = 0
+            ZipFile(archive).use { zip ->
+                val entries = zip.entries()
+                while (entries.hasMoreElements()) {
+                    currentCoroutineContext().ensureActive()
+                    val entry = entries.nextElement()
+                    count++
+                    check(count <= 20_000) { "压缩包文件数异常" }
+                    val name = entry.name
+                    check(name.startsWith(requiredRoot) && !name.contains('\\') &&
+                        !name.contains("..") && !name.startsWith("/") && !name.contains(':')) {
+                        "ZIP 文件路径不安全或顶层目录不匹配：" + name
+                    }
+                    val relative = name.removePrefix(requiredRoot)
+                    if (relative.isEmpty()) continue
+                    val output = File(staging, relative)
+                    check(output.canonicalPath.startsWith(staging.canonicalPath + File.separator)) {
+                        "ZIP 路径越界"
+                    }
+                    check(visited.add(relative)) { "ZIP 内存在重复文件：" + relative }
+                    if (entry.isDirectory) {
+                        check(output.isDirectory || output.mkdirs()) { "无法创建解压目录" }
+                        continue
+                    }
+                    check(entry.size >= 0 && entry.size <= spec.maxExpandedBytes) {
+                        "ZIP 条目长度异常"
+                    }
+                    check(output.parentFile?.isDirectory == true || output.parentFile?.mkdirs() == true) {
+                        "无法建立模型文件夹"
+                    }
+                    val crc = CRC32()
+                    var readTotal = 0L
+                    zip.getInputStream(entry).use { input ->
+                        FileOutputStream(output).use { sink ->
+                            val buffer = ByteArray(256 * 1024)
+                            while (true) {
+                                currentCoroutineContext().ensureActive()
+                                val n = input.read(buffer)
+                                if (n < 0) break
+                                readTotal += n
+                                expanded += n
+                                check(readTotal <= entry.size && expanded <= spec.maxExpandedBytes) {
+                                    "ZIP 解压大小超出限制"
+                                }
+                                crc.update(buffer, 0, n)
+                                sink.write(buffer, 0, n)
+                            }
+                            sink.fd.sync()
+                        }
+                    }
+                    check(readTotal == entry.size && crc.value == entry.crc) {
+                        "ZIP CRC 或文件长度损坏：" + relative
+                    }
+                    report(Progress(expanded, spec.estimatedExpandedBytes,
+                        "解压 Vosk · " + count + " 个文件"))
+                }
+            }
+            check(isValidVoskDirectory(staging)) { "模型缺少声学文件、配置或解码图" }
+            // Old model, if any, is preserved until the new one is fully extracted and checked.
+            if (destination.exists()) {
+                Files.move(destination.toPath(), previous.toPath(), StandardCopyOption.ATOMIC_MOVE)
+            }
+            try {
+                Files.move(staging.toPath(), destination.toPath(), StandardCopyOption.ATOMIC_MOVE)
+            } catch (failure: Exception) {
+                if (previous.exists()) Files.move(previous.toPath(), destination.toPath(), StandardCopyOption.ATOMIC_MOVE)
+                throw failure
+            }
+            previous.deleteRecursively()
+            archive.delete()
+            AppSettings.notifyModelsChanged()
+            report(Progress(spec.archiveBytes, spec.archiveBytes, "已安装 · 返回主页自动切换"))
+        } finally {
+            if (staging.exists()) staging.deleteRecursively()
+        }
+    }
+
+    fun isValidVoskDirectory(root: File): Boolean {
+        if (!root.isDirectory) return false
+        if (!File(root, "am/final.mdl").isFile) return false
+        if (!File(root, "conf/mfcc.conf").isFile) return false
+        return File(root, "graph").listFiles()?.any { it.isFile && it.extension == "fst" } == true
+    }
+}
