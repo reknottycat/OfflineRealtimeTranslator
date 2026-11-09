@@ -48,6 +48,17 @@
         android:fontFamily="sans"
         android:maxLines="2" />
 
+    <TextView
+        android:id="@+id/tv_autosave_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#FF151719"
+        android:paddingHorizontal="14dp"
+        android:paddingBottom="6dp"
+        android:text="自动保存已开启 · 历史可查看"
+        android:textSize="11sp"
+        android:textColor="#FF82BAAA" />
+
     <!-- Russian ASR area (top half) -->
     <FrameLayout
         android:layout_width="match_parent"
@@ -63,7 +74,8 @@
                 android:id="@+id/tv_russian_history"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:padding="18dp"
+                android:paddingHorizontal="18dp"
+                android:paddingTop="52dp"
                 android:paddingBottom="32dp"
                 android:textSize="17sp"
                 android:textColor="#FFF0F1F2"
@@ -73,6 +85,36 @@
                 android:textColorHint="#FF9BA0A7"
                 tools:text="Привет мир" />
         </ScrollView>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:layout_gravity="top"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="#FF181B1F"
+            android:paddingHorizontal="14dp">
+            <TextView
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="俄语原文 · 实时识别"
+                android:textSize="12sp"
+                android:textColor="#FFE4E7EB"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/tv_follow_ru"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:gravity="center"
+                android:paddingHorizontal="8dp"
+                android:text="● 自动跟随"
+                android:textSize="11sp"
+                android:textColor="#FF93CDBB"
+                android:clickable="true"
+                android:focusable="true"
+                android:contentDescription="切换俄文字幕自动跟随" />
+        </LinearLayout>
 
         <!-- Scroll-to-bottom button (Russian) -->
         <ImageButton
@@ -182,7 +224,8 @@
                 android:id="@+id/tv_chinese_history"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:padding="18dp"
+                android:paddingHorizontal="18dp"
+                android:paddingTop="52dp"
                 android:paddingBottom="32dp"
                 android:textSize="17sp"
                 android:textColor="#FFF0F6F3"
@@ -192,6 +235,36 @@
                 android:textColorHint="#FF93A49E"
                 tools:text="你好世界" />
         </ScrollView>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:layout_gravity="top"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="#FF181B1F"
+            android:paddingHorizontal="14dp">
+            <TextView
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="中文译文 · 流式翻译"
+                android:textSize="12sp"
+                android:textColor="#FFE4E7EB"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/tv_follow_zh"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:gravity="center"
+                android:paddingHorizontal="8dp"
+                android:text="● 自动跟随"
+                android:textSize="11sp"
+                android:textColor="#FF93CDBB"
+                android:clickable="true"
+                android:focusable="true"
+                android:contentDescription="切换中文译文自动跟随" />
+        </LinearLayout>
 
         <!-- Scroll-to-bottom button (Chinese) -->
         <ImageButton
