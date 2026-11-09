@@ -1,0 +1,7 @@
+REAL_DOWNLOAD_START model=Hy-MT2-1.8B-Q4_K_M.gguf expected_bytes=1133080448 resume=true defaults=4MiB/4workers/8attempt/12s-connect/20s-read/45s-handshake TLS=verified
+PROGRESS elapsed_s=20 received_mib=996 expected_mib=1080 stage=下载 modelscope.cn · 源 1/7 · 分块 251/271 · 尝试 1/8
+PROGRESS elapsed_s=40 received_mib=1024 expected_mib=1080 stage=连接 modelscope.cn · 源 1/7 · 分块 260/271 · 尝试 1/8
+PROGRESS elapsed_s=60 received_mib=1040 expected_mib=1080 stage=连接 modelscope.cn · 源 1/7 · 分块 264/271 · 尝试 1/8
+PROGRESS elapsed_s=80 received_mib=1056 expected_mib=1080 stage=连接 modelscope.cn · 源 1/7 · 分块 268/271 · 尝试 1/8
+PROGRESS elapsed_s=100 received_mib=1070 expected_mib=1080 stage=连接 modelscope.cn · 源 1/7 · 分块 271/271 · 尝试 1/8
+REAL_DOWNLOAD_RESULT success=true bytes=1133080448 sha256=dc5f44fcf1fa496ee7ad725982c0c8c553a4de00259b53af84c4b89fb0c06699 wall_s=102.188320083 last_stage=校验完整模型 SHA-256

@@ -1,0 +1,67 @@
+{
+  "status": "passed",
+  "validation_scope": "Production Kotlin/JVM download transport, using real ModelScope/CDN network responses. Not an Android phone test.",
+  "release": {
+    "tag": "v3.6-alpha-cn-ad3ac4f1-42643758721-1",
+    "commit": "ad3ac4f1094bf3b8185c2577bdbfb6bce0a26658",
+    "production_sources_match_release": true,
+    "source_binding_report": "release-source-binding.json"
+  },
+  "model": {
+    "file_name": "Hy-MT2-1.8B-Q4_K_M.gguf",
+    "bytes": 1133080448,
+    "sha256": "dc5f44fcf1fa496ee7ad725982c0c8c553a4de00259b53af84c4b89fb0c06699",
+    "production_full_hash_verified": true,
+    "independent_full_hash_verified": true
+  },
+  "source": {
+    "provider": "ModelScope",
+    "pinned_url": "https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT2-1.8B-GGUF/resolve/ef1d40b8b315575d30d1eb6579996130b8fc0bb2/Hy-MT2-1.8B-Q4_K_M.gguf",
+    "resumed_run_observed_source_indices": [
+      1
+    ],
+    "initial_run_observation": "20-second progress samples used ModelScope source 1/7"
+  },
+  "production_defaults": {
+    "chunk_bytes": 4194304,
+    "workers": 4,
+    "attempts_per_chunk": 8,
+    "connect_timeout_ms": 12000,
+    "read_timeout_ms": 20000,
+    "handshake_timeout_ms": 45000,
+    "unchanged_from_production_defaults": true
+  },
+  "attempts": [
+    {
+      "phase": "initial_download",
+      "outcome": "validation_tool_interrupted_at_900_seconds_not_transport_failure",
+      "start_utc_estimated": "2026-11-09T15:35:13.144437+00:00",
+      "monotonic_seconds": 900.2111010949957,
+      "completed_chunks": 248,
+      "journal_completed_bytes": 1040187392,
+      "log": "model-download-attempt-1.log"
+    },
+    {
+      "phase": "process_restart_and_resume",
+      "outcome": "passed",
+      "start_utc": "2026-11-09T15:50:26.786969501Z",
+      "finish_utc": "2026-11-09T15:52:08.984246325Z",
+      "monotonic_seconds": 102.188320083,
+      "initial_completed_chunks": 248,
+      "newly_requested_chunks": 23,
+      "previous_completed_requested": [],
+      "requested_exactly_the_missing_chunks": true,
+      "log": "model-download-resume.log"
+    }
+  ],
+  "total_wall_seconds_including_restart_and_compile_approx": 1015.839809,
+  "within_1260_second_total_limit": true,
+  "tls_verification_enabled": true,
+  "environment": {
+    "cloud_jvm": true,
+    "cloud_egress_proxy": true,
+    "android_phone": false,
+    "chinese_mobile_network": false
+  },
+  "limits": "Does not establish Chinese phone-network speed, Android UI behavior or on-device inference quality."
+}

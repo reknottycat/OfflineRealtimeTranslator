@@ -1,0 +1,25 @@
+{
+  "release_tag": "v3.6-alpha-cn-ad3ac4f1-42643758721-1",
+  "release_commit": "ad3ac4f1094bf3b8185c2577bdbfb6bce0a26658",
+  "all_production_sources_match_release": true,
+  "files": {
+    "ModelCatalog.kt": {
+      "expected_release_blob_sha": "4cbab37a2f7b029af614c245b3e9eb086fe006bb",
+      "actual_compiled_source_blob_sha": "4cbab37a2f7b029af614c245b3e9eb086fe006bb",
+      "matches": true,
+      "source_sha256": "a06bd9e7cb96444261a7f8a73420ba12083ff82b765e4e42cc59b59195ca3522"
+    },
+    "DownloadProtocol.kt": {
+      "expected_release_blob_sha": "793449fff961fab4b986218e22bf08d08811a07f",
+      "actual_compiled_source_blob_sha": "793449fff961fab4b986218e22bf08d08811a07f",
+      "matches": true,
+      "source_sha256": "b2db620ad693be17c6c54d529f70bfe975bb0ef915b698f22ffa88322fc5572a"
+    },
+    "ModelDownloadTransport.kt": {
+      "expected_release_blob_sha": "b525050a04212d997a320494d5cf18da2be6e051",
+      "actual_compiled_source_blob_sha": "b525050a04212d997a320494d5cf18da2be6e051",
+      "matches": true,
+      "source_sha256": "5346249636e214dab2ed0b9446479cabc227f2be29a11d1bfd56e2d87b0086fd"
+    }
+  }
+}
