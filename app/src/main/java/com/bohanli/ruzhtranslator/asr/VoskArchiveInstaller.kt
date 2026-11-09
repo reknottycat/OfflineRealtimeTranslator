@@ -11,6 +11,7 @@ import java.net.URL
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
+import java.util.Locale
 import java.util.zip.CRC32
 import java.util.zip.ZipFile
 import kotlinx.coroutines.CancellationException
@@ -44,6 +45,7 @@ class VoskArchiveInstaller(
     private val destination = File(modelsRoot, spec.id)
     private val workDir = File(app.filesDir, "vosk_downloads")
     private val partial = File(workDir, spec.archiveName + ".part")
+    private val partialOrigin = File(workDir, spec.archiveName + ".origin")
     private val importFile = File(workDir, spec.archiveName + ".import")
     private val staging = File(modelsRoot, "." + spec.id + ".installing")
     private val previous = File(modelsRoot, "." + spec.id + ".backup")
@@ -65,12 +67,14 @@ class VoskArchiveInstaller(
             for ((index, source) in urls.withIndex()) {
                 currentCoroutineContext().ensureActive()
                 try {
+                    prepareSource(source, report)
                     report(Progress(partial.length(), spec.archiveBytes,
                         "下载来源 " + (index + 1) + "/" + urls.size + " · " + URL(source).host))
                     fetch(source, report)
                     if (!verifyArchive(partial, report)) {
                         partial.delete()
-                        throw IOException("SHA-256 或 ZIP 文件检查未通过")
+                        partialOrigin.delete()
+                        throw IOException("Vosk ZIP SHA-256 不匹配：文件可能不是所选版本，已清除损坏断点")
                     }
                     unpackAndInstall(partial, report)
                     return@withLock
@@ -120,6 +124,7 @@ class VoskArchiveInstaller(
             require(!previous.exists()) { "检测到安装备份，请先人工检查以避免数据丢失" }
             destination.deleteRecursively()
             partial.delete()
+            partialOrigin.delete()
             importFile.delete()
             AppSettings.notifyModelsChanged()
         }
@@ -137,6 +142,24 @@ class VoskArchiveInstaller(
             "存储空间不足：下载、解压该模型至少还需要约 " +
                 (minimum / 1024 / 1024) + " MiB 可用空间"
         }
+    }
+
+    /**
+     * v3.8 could resume a partially downloaded archive from another URL.
+     * Prevent mixed-origin archives; Large has no pinned publisher digest.
+     */
+    private fun prepareSource(source: String, report: (Progress) -> Unit) {
+        val key = MessageDigest.getInstance("SHA-256")
+            .digest(source.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+        val previous = partialOrigin.takeIf { it.isFile }?.readText()?.trim()
+        if (partial.length() > 0 && previous != key) {
+            report(Progress(0L, spec.archiveBytes,
+                "检测到旧版或另一下载源的断点，安全重置以避免 ZIP 内容混合"))
+            check(partial.delete()) { "旧断点清理失败，请检查文件权限" }
+        }
+        partialOrigin.writeText(key)
+        ensureSpace()
     }
 
     private suspend fun fetch(source: String, report: (Progress) -> Unit) {
