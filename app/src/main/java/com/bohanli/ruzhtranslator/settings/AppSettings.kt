@@ -57,4 +57,15 @@ object AppSettings {
     var asrModel: String
         get() = prefs?.getString(KEY_ASR_MODEL, ASR_MODEL_SMALL) ?: ASR_MODEL_SMALL
         set(value) { prefs?.edit()?.putString(KEY_ASR_MODEL, value)?.apply() }
+    var translationEngine: String
+        get() = prefs?.getString(KEY_TRANSLATION_ENGINE, ENGINE_GEMMA4) ?: ENGINE_GEMMA4
+        set(value) { prefs?.edit()?.putString(KEY_TRANSLATION_ENGINE, value)?.apply() }
+
+    var inferenceBackend: String
+        get() = prefs?.getString(KEY_INFERENCE_BACKEND, BACKEND_AUTO) ?: BACKEND_AUTO
+        set(value) { prefs?.edit()?.putString(KEY_INFERENCE_BACKEND, value)?.apply() }
+
+    var modelSource: String
+        get() = prefs?.getString(KEY_MODEL_SOURCE, SOURCE_HF) ?: SOURCE_HF
+        set(value) { prefs?.edit()?.putString(KEY_MODEL_SOURCE, value)?.apply() }
 }
