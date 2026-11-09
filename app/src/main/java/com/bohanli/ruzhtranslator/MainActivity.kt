@@ -146,6 +146,11 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, HistoryActivity::class.java).putExtra("tab", 1))
         }
         binding.btnSettings.setOnClickListener {
+            if (currentAsrModel == AppSettings.ASR_MODEL_GIGAAM &&
+                voskAsr?.hasPendingResults() == true) {
+                updateStatus(AppStatus.Loading("正在完成最后一段俄语识别，请稍后进入设置"))
+                return@setOnClickListener
+            }
             // No active recorder, queue or translator may keep running while model files are managed.
             if (lastPartial.isNotBlank()) {
                 appendRussianSegment(lastPartial)
@@ -263,7 +268,8 @@ class MainActivity : AppCompatActivity() {
                             }
                             GigaAmAsrManager(this@MainActivity, dir,
                                 { onVoskPartial(it) }, { onVoskFinal(it) },
-                                { updateStatus(AppStatus.Error(it)) })
+                                { updateStatus(AppStatus.Error(it)) },
+                                { refreshStoppedState() })
                         } else {
                             val dir = ModelManager.getModelDir(this@MainActivity, currentAsrModel)
                                 ?: error("Vosk 俄语模型未安装（$currentAsrModel），请在设置中选择 Small/Large 并下载")
@@ -370,7 +376,8 @@ class MainActivity : AppCompatActivity() {
         if (settingsOpened || gemmaTranslator?.isAvailable() != true) return
         val asr = voskAsr ?: run { updateStatus(AppStatus.Error("语音识别引擎未就绪")); return }
         // Starting a new recording must not discard translations still finishing.
-        if (pendingAsrResults > 0 || translationQueue?.hasPending() == true) {
+        if (pendingAsrResults > 0 || translationQueue?.hasPending() == true ||
+            voskAsr?.hasPendingResults() == true) {
             updateStatus(AppStatus.Loading("请等待上一段翻译完成，字幕正自动保存"))
             return
         }
@@ -467,7 +474,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun refreshStoppedState() {
         if (settingsOpened || isListening || isPaused || isDestroyed) return
-        val pending = pendingAsrResults > 0 || translationQueue?.hasPending() == true
+        val pending = pendingAsrResults > 0 || translationQueue?.hasPending() == true ||
+            voskAsr?.hasPendingResults() == true
         val ready = !pending && gemmaTranslator?.isAvailable() == true
         binding.btnStartStop.isEnabled = ready
         binding.btnStartStop.alpha = if (ready) 0.75f else 0.4f
