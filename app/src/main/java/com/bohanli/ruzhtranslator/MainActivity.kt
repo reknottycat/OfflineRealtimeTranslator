@@ -430,6 +430,11 @@ class MainActivity : AppCompatActivity() {
     }
     private fun resumeFromPause() {
         if (gemmaTranslator?.isAvailable() != true) return
+        if (currentAsrModel == AppSettings.ASR_MODEL_GIGAAM &&
+            voskAsr?.hasPendingResults() == true) {
+            updateStatus(AppStatus.Loading("正在保存暂停前最后一句俄语，完成后再继续"))
+            return
+        }
         isPaused = false
         translationQueue?.resume()
         voskAsr?.startListening()
