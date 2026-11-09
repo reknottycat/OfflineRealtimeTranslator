@@ -26,14 +26,15 @@ object ModelManager {
      * and transparently resolves to the correct inner directory.
      */
     fun getModelDir(context: Context, modelName: String): File? {
-        // Priority 0: public shared storage fallback
-        getPublicFallbackDir()?.let { publicBase ->
-            resolveDir(File(publicBase, modelName))?.let { return it }
-        }
-
-        // Priority 1: internal storage (already extracted)
+        // Verified app-private models take precedence over legacy public imports.
+        // This ensures a newly downloaded Small/Large is actually the one loaded.
         val internalDir = File(context.filesDir, "$MODELS_SUBDIR/$modelName")
         resolveDir(internalDir)?.let { return it }
+
+        // Legacy shared-storage fallback after app-private installation.
+        getPublicFallbackDir()?.let { base ->
+            resolveDir(File(base, modelName))?.let { return it }
+        }
 
         // Priority 2: external scoped files dir
         context.getExternalFilesDir(MODELS_SUBDIR)?.let { base ->
