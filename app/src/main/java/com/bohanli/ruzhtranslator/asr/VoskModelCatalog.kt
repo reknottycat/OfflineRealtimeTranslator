@@ -32,8 +32,8 @@ object VoskModelCatalog {
         512L * 1024 * 1024, 180L * 1024 * 1024
     )
     val LARGE = Spec(
-        AppSettings.ASR_MODEL_LARGE, "俄语 Large 0.42",
-        1_837_429_010L, null, 8L * 1024 * 1024 * 1024, 4L * 1024 * 1024 * 1024
+        AppSettings.ASR_MODEL_LARGE, "俄语 Large 0.42 · ZIP 1.84 GB，解压约 3.7 GB",
+        1_837_429_010L, null, 8L * 1024 * 1024 * 1024, 3_700_000_000L
     )
     fun model(id: String): Spec = when (id) {
         SMALL.id -> SMALL
