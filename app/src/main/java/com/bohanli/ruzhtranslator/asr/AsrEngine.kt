@@ -6,4 +6,6 @@ interface AsrEngine {
     fun startListening()
     fun stopListening()
     fun release()
+    /** Whether a stopped ASR backend can still emit a final subtitle. */
+    fun hasPendingResults(): Boolean = false
 }
