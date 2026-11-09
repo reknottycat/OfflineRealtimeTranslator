@@ -82,6 +82,9 @@
                         android:text="@string/asr_model_small" android:textColor="#FFFFFFFF" android:buttonTint="#FF10A37F" />
                     <RadioButton android:id="@+id/rb_asr_large" android:layout_width="match_parent" android:layout_height="wrap_content"
                         android:text="@string/asr_model_large" android:textColor="#FFFFFFFF" android:buttonTint="#FF10A37F" />
+                    <RadioButton android:id="@+id/rb_asr_gigaam" android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="GigaAM v2 Russian INT8 · 236 MB（第三方 sherpa-onnx）"
+                        android:textColor="#FFFFFFFF" android:buttonTint="#FF10A37F" />
                 </RadioGroup>
                 <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:layout_marginTop="8dp" android:text="下载来源" android:textColor="#FFF5F5F5"
