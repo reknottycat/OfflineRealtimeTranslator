@@ -1,4 +1,4 @@
-name: Gemma4 + LMT Android APK
+name: Gemma4 + LMT + HY-MT2 Android APK
 on:
   pull_request:
   workflow_dispatch:
@@ -33,16 +33,18 @@ jobs:
           chmod +x gradlew
           ./gradlew --no-daemon --max-workers=4 --stacktrace :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
       - name: Verify and package APK evidence
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk dist/OfflineRealtimeTranslator-Gemma4-LMT-debug.apk
+          cp app/build/outputs/apk/debug/app-debug.apk dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs dist/*.apk > dist/apk-signature.txt
           python3 scripts/ci_lmt_report.py
           sha256sum dist/*.apk > dist/SHA256SUMS.txt
       - name: APK download
         uses: actions/upload-artifact@v4
         with:
-          name: OfflineRealtimeTranslator-Gemma4-LMT-debug
+          name: OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug
           path: dist/
           if-no-files-found: error
           retention-days: 30
@@ -62,25 +64,56 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Build exactly the shared LMT core used by Android JNI
+      - name: Build shared Android JNI core and both contract suites
         run: |
           cmake -S app/src/main/cpp/lmt -B host-build -DCMAKE_BUILD_TYPE=Release
-          cmake --build host-build --parallel 4 --target lmt-contract-tests lmt-smoke
+          cmake --build host-build --parallel 4 --target lmt-contract-tests hymt-contract-tests lmt-smoke hymt-smoke
           ctest --test-dir host-build --output-on-failure
-      - name: Download and verify the real pinned LMT weights
+      - name: Download and verify real pinned LMT weights
         run: python3 scripts/lmt_model_smoke.py download
-      - name: Russian to Chinese real-model inference and cancellation
+      - name: LMT regression with real weights and cancellation
         run: |
-          ./host-build/lmt-smoke /tmp/lmt-smoke.gguf > lmt-smoke.tsv
+          ./host-build/lmt-smoke /tmp/lmt-smoke.gguf > lmt-smoke.tsv 2> lmt-native.log
           python3 scripts/lmt_model_smoke.py check
-      - name: Native/model evidence
+      - name: LMT native evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: lmt-native-inference-evidence
           path: |
             lmt-smoke.tsv
+            lmt-native.log
             lmt-model-download.json
             lmt-smoke-report.json
+            host-build/Testing/Temporary/LastTest.log
+          retention-days: 30
+  hymt-native-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Build shared Android JNI core and both contract suites
+        run: |
+          cmake -S app/src/main/cpp/lmt -B host-build -DCMAKE_BUILD_TYPE=Release
+          cmake --build host-build --parallel 4 --target lmt-contract-tests hymt-contract-tests lmt-smoke hymt-smoke
+          ctest --test-dir host-build --output-on-failure
+      - name: Download and verify Tencent official pinned HY-MT2 weights
+        run: python3 scripts/hymt_model_smoke.py download
+      - name: HY-MT2 actual inference, repeated segments, streaming and cancellation
+        run: |
+          ./host-build/hymt-smoke /tmp/hymt-smoke.gguf > hymt-smoke.tsv 2> hymt-native.log
+          python3 scripts/hymt_model_smoke.py check
+      - name: HY-MT2 native evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hymt-native-inference-evidence
+          path: |
+            hymt-smoke.tsv
+            hymt-native.log
+            hymt-model-download.json
+            hymt-smoke-report.json
             host-build/Testing/Temporary/LastTest.log
           retention-days: 30

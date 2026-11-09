@@ -2,19 +2,12 @@ package com.bohanli.ruzhtranslator.core
 
 import com.bohanli.ruzhtranslator.settings.AppSettings
 
-/** Immutable, per-engine artifacts. A mirror is trusted only after SHA-256 verification. */
+/** Immutable per-engine artifacts; source failover never bypasses SHA-256 verification. */
 object ModelCatalog {
     data class Spec(
-        val engine: String,
-        val title: String,
-        val directory: String,
-        val fileName: String,
-        val bytes: Long,
-        val maximumBytes: Long,
-        val sha256: String,
-        val repository: String,
-        val revision: String,
-        val sizeLabel: String
+        val engine: String, val title: String, val directory: String, val fileName: String,
+        val bytes: Long, val maximumBytes: Long, val sha256: String,
+        val repository: String, val revision: String, val sizeLabel: String
     ) {
         init {
             require(Regex("[a-f0-9]{64}").matches(sha256))
@@ -35,12 +28,24 @@ object ModelCatalog {
         "LMT-60-1.7B.Q4_K_M.gguf", 0L, 1_600_000_000L,
         "54c6244f100330264cef607188413ee82cb8a254f0cf950011aaa9cee74f7eb5",
         "mradermacher/LMT-60-1.7B-GGUF", "f03d51b43463d8a457eee1cd765220de69e9bac8", "约 1.28 GB")
-    // LMT's full digest binds both its exact bytes and contents; the upstream web
-    // view only displayed a rounded size, so do not invent an exact byte count.
+    // Tencent's own Q4_K_M release, not a third-party conversion or STQ kernel build.
+    // Exact size and digest are published in the upstream Git LFS pointer.
+    val HYMT2 = Spec(AppSettings.ENGINE_HYMT2, "腾讯 HY-MT2-1.8B Q4_K_M", "hy-mt2-1.8b-q4_k_m",
+        "Hy-MT2-1.8B-Q4_K_M.gguf", 1_133_080_448L, 1_133_080_448L,
+        "dc5f44fcf1fa496ee7ad725982c0c8c553a4de00259b53af84c4b89fb0c06699",
+        "tencent/Hy-MT2-1.8B-GGUF", "a0c709d9fac510f2c807aa3af52872340dc37a4a", "1.13 GB")
+    val all: List<Spec> get() = listOf(GEMMA4, LMT, HYMT2)
     fun forEngine(engine: String): Spec = when (engine) {
         AppSettings.ENGINE_GEMMA4 -> GEMMA4
         AppSettings.ENGINE_LMT -> LMT
+        AppSettings.ENGINE_HYMT2 -> HYMT2
         else -> throw IllegalArgumentException("Unknown translation engine: $engine")
+    }
+    /** ABI contract with lmt::Kind. Gemma must never be passed to the GGUF bridge. */
+    fun nativeKind(engine: String): Int = when (engine) {
+        AppSettings.ENGINE_LMT -> 0
+        AppSettings.ENGINE_HYMT2 -> 1
+        else -> throw IllegalArgumentException("Not a GGUF translation engine: $engine")
     }
     fun sourceUrl(source: String, engine: String = AppSettings.ENGINE_GEMMA4): String? {
         val model = forEngine(engine)
