@@ -45,6 +45,7 @@ class VoskAsrManager(
         } catch (e: Exception) {
             Log.e(TAG, "Vosk load failed: ${e.message}")
             withContext(Dispatchers.Main) { onError("Vosk 模型加载失败: ${e.message}") }
+            throw e // Never let MainActivity enable the microphone with an uninitialized recognizer.
         }
     }
 

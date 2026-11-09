@@ -193,7 +193,7 @@ class MainActivity : AppCompatActivity() {
                 val initialized = coroutineScope {
                     val asr = async(Dispatchers.IO) {
                         val dir = ModelManager.getModelDir(this@MainActivity, currentAsrModel)
-                            ?: error("找不到 Vosk ASR 模型 ($currentAsrModel)。请放至：\n" +
+                            ?: error("Vosk 俄语模型尚未安装（$currentAsrModel）。请进入设置 → 语音识别模型，选择 Small/Large 并点击下载；也可放至：" +
                                 "${ModelManager.getExternalModelDir(this@MainActivity)}/$currentAsrModel/")
                         val instance = VoskAsrManager(dir.absolutePath,
                             { onVoskPartial(it) }, { onVoskFinal(it) }, { updateStatus(AppStatus.Error(it)) })

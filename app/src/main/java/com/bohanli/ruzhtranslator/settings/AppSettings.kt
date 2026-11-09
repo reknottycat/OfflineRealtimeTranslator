@@ -8,6 +8,7 @@ object AppSettings {
     private const val PREFS = "app_settings"
     private const val KEY_DRIFT_RETRY = "drift_retry_enabled"
     private const val KEY_ASR_MODEL = "asr_model"
+    private const val KEY_ASR_SOURCE = "asr_download_source"
     private const val KEY_TRANSLATION_ENGINE = "translation_engine"
     private const val KEY_INFERENCE_BACKEND = "inference_backend"
     private const val KEY_MODEL_SOURCE = "model_source"
@@ -55,6 +56,9 @@ object AppSettings {
     var asrModel: String
         get() = prefs?.getString(KEY_ASR_MODEL, ASR_MODEL_SMALL) ?: ASR_MODEL_SMALL
         set(value) { prefs?.edit()?.putString(KEY_ASR_MODEL, value)?.apply() }
+    var asrSource: String
+        get() = prefs?.getString(KEY_ASR_SOURCE, "auto") ?: "auto"
+        set(value) { prefs?.edit()?.putString(KEY_ASR_SOURCE, value)?.apply() }
     var translationEngine: String
         get() = prefs?.getString(KEY_TRANSLATION_ENGINE, ENGINE_GEMMA4) ?: ENGINE_GEMMA4
         set(value) { prefs?.edit()?.putString(KEY_TRANSLATION_ENGINE, value)?.apply() }
