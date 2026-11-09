@@ -148,9 +148,7 @@ class MainActivity : AppCompatActivity() {
                 lastPartial = ""
                 updateRussianDisplay()
             }
-            saveSubtitleSnapshot()
-            subtitleSaver?.close()
-            subtitleSaver = null
+            saveSessionToHistory() // closes journal and clears live buffers before recreation
             settingsOpened = true
             sessionEpoch++
             modelsLoading?.cancel()
