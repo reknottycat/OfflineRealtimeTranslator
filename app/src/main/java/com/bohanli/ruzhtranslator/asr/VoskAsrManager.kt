@@ -36,7 +36,7 @@ class VoskAsrManager(
 
     @Volatile private var running = false
 
-    override suspend fun initialize() = withContext(Dispatchers.IO) {
+    override suspend fun initialize(): Unit = withContext(Dispatchers.IO) {
         try {
             Log.i(TAG, "Loading Vosk model: $modelPath")
             model = Model(modelPath)
@@ -47,6 +47,7 @@ class VoskAsrManager(
             withContext(Dispatchers.Main) { onError("Vosk 模型加载失败: ${e.message}") }
             throw e // Never let MainActivity enable the microphone with an uninitialized recognizer.
         }
+        Unit
     }
 
     override fun startListening() {
