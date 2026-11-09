@@ -132,6 +132,7 @@ class SettingsActivity : AppCompatActivity() {
         uiScope.launch {
             try {
                 action()
+                AppSettings.notifyModelsChanged()
                 updateModelStatus()
             } catch (e: Exception) {
                 binding.tvModelStatus.text = "操作失败：${e.message}"
