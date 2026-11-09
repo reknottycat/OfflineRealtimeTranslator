@@ -1,0 +1,52 @@
+name: Publish permanent direct APK file
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-direct-apk.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  raw-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download verified APK with artifact fallback
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/apk-payload"
+          if gh release download v3.5-alpha-hymt2 -R "$GITHUB_REPOSITORY" \
+              --pattern "OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-v3.5-debug.apk" \
+              --dir "$RUNNER_TEMP/apk-payload"; then
+            test "$(sha256sum "$RUNNER_TEMP/apk-payload/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-v3.5-debug.apk" | cut -d' ' -f1)" = "07cc52307628432dcfbb6c9363b86b48ae716b56ddbdfa444029ecacc62d5012"
+          else
+            echo "Release asset unavailable; recovering already validated APK from CI artifact"
+            gh run download 42625877565 -R "$GITHUB_REPOSITORY" \
+              -n OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug \
+              -D "$RUNNER_TEMP/apk-payload"
+            cd "$RUNNER_TEMP/apk-payload"
+            sha256sum -c SHA256SUMS.txt
+            mv OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-v3.5-debug.apk
+          fi
+          test "$(stat -c%s "$RUNNER_TEMP/apk-payload/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-v3.5-debug.apk")" -gt 50000000
+          unzip -t "$RUNNER_TEMP/apk-payload/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-v3.5-debug.apk" >/dev/null
+          cd "$RUNNER_TEMP/apk-payload"
+          sha256sum OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-v3.5-debug.apk > SHA256SUMS.txt
+      - name: Push APK to dedicated download-only branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan apk-downloads
+          git rm -rf --cached . >/dev/null
+          git clean -fdx >/dev/null
+          cp "$RUNNER_TEMP/apk-payload/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-v3.5-debug.apk" .
+          cp "$RUNNER_TEMP/apk-payload/SHA256SUMS.txt" .
+          printf '%s\n' '# Direct APK downloads' '' 'This orphan branch stores only the compiled, experimental Android APK and its SHA-256 checksum.' 'Main branch remains source-only. This APK includes unmerged HY-MT2 changes from PR #3.' > README.md
+          git add README.md OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-v3.5-debug.apk SHA256SUMS.txt
+          git commit -m "release: publish v3.5 three-engine preview APK as direct download"
+          git push origin HEAD:refs/heads/apk-downloads --force
