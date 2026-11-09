@@ -1,0 +1,46 @@
+name: Publish HY-MT2 preview APK to GitHub Releases
+on:
+  push:
+    branches:
+      - feat/hy-mt2-engine
+    paths:
+      - .github/workflows/publish-preview-apk.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  release-preview:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Prepare Android SDK
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKMGR="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | head -n 1)"
+          "$SDKMGR" --install "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358" "cmake;3.22.1"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Test, lint and build
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon --max-workers=4 :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+      - name: Publish prerelease APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/app-debug.apk dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-v3.5-debug.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify dist/*.apk
+          sha256sum dist/*.apk > dist/SHA256SUMS.txt
+          TAG="v3.5-alpha-hymt2"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/*.apk dist/SHA256SUMS.txt --clobber
+          else
+            gh release create "$TAG" dist/*.apk dist/SHA256SUMS.txt --target "$GITHUB_SHA" --title "v3.5 alpha: Gemma 4 + LMT + HY-MT2 (debug)" --notes "Experimental ARM64 debug APK. Gemma 4, LMT, HY-MT2; models download separately. Android device performance and microphone-to-subtitle workflow are not yet validated. HY-MT2 implementation remains in draft PR #3." --prerelease
+          fi
