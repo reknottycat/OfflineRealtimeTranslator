@@ -55,7 +55,7 @@ object VoskModelCatalog {
         val fallback = if (spec.isLarge) listOf(spec.officialUrl) else
             smallDomestic + listOf(spec.officialUrl, smallGithub)
         val priority = when (source) {
-            SOURCE_AUTO, SOURCE_DOMESTIC -> emptyList()
+            SOURCE_AUTO, SOURCE_DOMESTIC, AppSettings.SOURCE_MODELSCOPE -> emptyList()
             SOURCE_OFFICIAL -> listOf(spec.officialUrl)
             SOURCE_CUSTOM -> {
                 require(customUrl.trim().startsWith("https://", true)) { "请填写 HTTPS 模型 ZIP 直链" }
