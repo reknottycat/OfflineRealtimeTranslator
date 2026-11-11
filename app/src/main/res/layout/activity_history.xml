@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:fitsSystemWindows="true"
     android:layout_width="match_parent"
@@ -22,7 +23,7 @@
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_arrow_back" android:tint="#FFD8D8D8"
+            android:src="@drawable/ic_arrow_back" app:tint="#FFD8D8D8"
             android:scaleType="centerInside"
             android:contentDescription="@string/back" />
 
@@ -80,7 +81,7 @@
             android:layout_height="48dp"
             android:layout_marginStart="4dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_select_all" android:tint="#FFD8D8D8"
+            android:src="@drawable/ic_select_all" app:tint="#FFD8D8D8"
             android:scaleType="centerInside"
             android:contentDescription="@string/multi_select" />
     </LinearLayout>
@@ -103,7 +104,7 @@
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_delete" android:tint="#FFD8D8D8"
+            android:src="@drawable/ic_delete" app:tint="#FFD8D8D8"
             android:scaleType="centerInside"
             android:contentDescription="@string/delete_selected" />
 
@@ -119,7 +120,7 @@
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_export" android:tint="#FFD8D8D8"
+            android:src="@drawable/ic_export" app:tint="#FFD8D8D8"
             android:scaleType="centerInside"
             android:contentDescription="@string/export" />
 
@@ -130,7 +131,7 @@
             android:layout_height="48dp"
             android:layout_marginStart="4dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_copy" android:tint="#FFD8D8D8"
+            android:src="@drawable/ic_copy" app:tint="#FFD8D8D8"
             android:scaleType="centerInside"
             android:contentDescription="@string/copy" />
 
@@ -141,7 +142,7 @@
             android:layout_height="48dp"
             android:layout_marginStart="4dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_star_outline" android:tint="#FFD8D8D8"
+            android:src="@drawable/ic_star_outline" app:tint="#FFD8D8D8"
             android:scaleType="centerInside"
             android:contentDescription="@string/favorites_title" />
 
