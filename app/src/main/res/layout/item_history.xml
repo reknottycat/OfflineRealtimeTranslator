@@ -23,10 +23,11 @@
         <!-- Favorite star button (always visible, left side) -->
         <ImageButton
             android:id="@+id/btn_favorite"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_star_outline"
+            android:tint="#FFC6CAC8"
             android:scaleType="centerInside"
             android:padding="4dp" />
 
