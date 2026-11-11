@@ -12,6 +12,7 @@ import android.util.Log
 import android.view.View
 import android.view.MotionEvent
 import android.widget.ScrollView
+import androidx.appcompat.app.AlertDialog
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -75,6 +76,7 @@ class MainActivity : AppCompatActivity() {
     private var currentInferenceBackend = AppSettings.BACKEND_AUTO
     private var currentModelGeneration = 0
     private var settingsOpened = false
+    private var lastModelLoadError: String? = null
     private var sessionEpoch = 0
     private var pendingAsrResults = 0
     private var subtitleSaver: SubtitleAutosaveWriter? = null
@@ -133,8 +135,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupUi() {
-        binding.btnStartStop.isEnabled = false
-        binding.btnStartStop.alpha = 0.4f
+        // Keep Start interactive even on a clean install without model weights.
+        binding.btnStartStop.isEnabled = true
+        binding.btnStartStop.alpha = 0.9f
         binding.btnStartStop.setOnClickListener {
             if (isListening || isPaused) stopListening() else requestMic()
         }
@@ -291,39 +294,62 @@ class MainActivity : AppCompatActivity() {
                     }
                     val translation = async(Dispatchers.IO) {
                         val dir = ModelManager.getModelDir(this@MainActivity, spec.directory)
-                            ?: error("${spec.title} 模型未安装，打开设置下载或导入 ${spec.fileName}")
-                        translator.initialize(dir)
-                        progress()
+                        if (dir == null) {
+                            Log.i(TAG, "Translation model not installed: ${spec.title}; ASR-only mode")
+                            false
+                        } else try {
+                            translator.initialize(dir)
+                            progress()
+                            translator.isAvailable()
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+                        } catch (failure: Exception) {
+                            Log.e(TAG, "Translation initialization failed; ASR-only remains available", failure)
+                            false
+                        }
                     }
                     val readyAsr = asr.await()
                     val readyPunctuation = punctuation.await()
-                    translation.await()
-                    readyAsr to readyPunctuation
+                    val translatorReady = translation.await()
+                    Triple(readyAsr, readyPunctuation, translatorReady)
                 }
                 voskAsr = initialized.first
                 recasepunc = initialized.second
-                TranslatorHolder.set(translator)
-                translationQueue = TranslationQueue(translator,
-                    onResult = { finalizeChinese(it) },
-                    onStreamToken = { appendStreamToken(it) },
-                    onStreamStart = { startChineseStream() },
-                    onBusyChanged = { busy ->
-                        if (busy) updateStatus(AppStatus.Translating)
-                        else if (isPaused) updateStatus(AppStatus.Paused)
-                        else if (isListening) updateStatus(AppStatus.Listening)
-                        else refreshStoppedState()
-                    })
+                if (initialized.third) {
+                    TranslatorHolder.set(translator)
+                    translationQueue = TranslationQueue(translator,
+                        onResult = { finalizeChinese(it) },
+                        onStreamToken = { appendStreamToken(it) },
+                        onStreamStart = { startChineseStream() },
+                        onBusyChanged = { busy ->
+                            if (busy) updateStatus(AppStatus.Translating)
+                            else if (isPaused) updateStatus(AppStatus.Paused)
+                            else if (isListening) updateStatus(AppStatus.Listening)
+                            else refreshStoppedState()
+                        })
+                } else {
+                    // A side-by-side preview has no inherited 2.6 GB translation weights.
+                    // Do not discard an otherwise fully usable GigaAM/Vosk recognizer.
+                    translator.destroy()
+                    gemmaTranslator = null
+                    binding.tvAutosaveStatus.text =
+                        "仅俄语转写 · 已识别字幕仍会自动保存，安装翻译模型后可开启中文翻译"
+                }
                 complete = true
-                binding.btnStartStop.isEnabled = translator.isAvailable()
-                binding.btnStartStop.alpha = if (translator.isAvailable()) 0.75f else 0.4f
-                updateStatus(if (translator.isAvailable()) AppStatus.Ready else AppStatus.Error("翻译引擎未就绪"))
+                lastModelLoadError = null
+                binding.btnStartStop.isEnabled = true
+                binding.btnStartStop.alpha = 0.9f
+                updateStatus(if (initialized.third) AppStatus.Ready else AppStatus.AsrOnly)
                 // Opening the app or changing an engine must not automatically turn the microphone on.
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Model loading failed", e)
-                updateStatus(AppStatus.Error(e.message ?: "模型加载失败"))
+                lastModelLoadError = e.message ?: "语音识别模型加载失败"
+                updateStatus(AppStatus.Error("$lastModelLoadError · 点击开始按钮配置模型"))
             } finally {
+                binding.btnStartStop.isEnabled = true
+                binding.btnStartStop.alpha = 0.9f
                 if (!complete) {
                     translator.destroy()
                     startupAsr?.release()
