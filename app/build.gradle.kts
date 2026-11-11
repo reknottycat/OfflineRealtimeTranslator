@@ -96,7 +96,7 @@ if (enableQnn) {
             includeEmptyDirs = false
         }
     }
-    android.sourceSets["main"].assets.srcDir(qwenNpuAssets)
+    android.sourceSets["main"].assets.srcDir(qwenNpuAssets.get().asFile)
     tasks.named("preBuild").configure { dependsOn(prepareQwenNpuAssets) }
 }
 
