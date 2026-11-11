@@ -11,8 +11,8 @@ android {
         applicationId = "com.bohanli.ruzhtranslator"
         minSdk = 29
         targetSdk = 36
-        versionCode = 40
-        versionName = "4.0-alpha-gigaam"
+        versionCode = 41
+        versionName = "4.1-alpha-startfix"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += "arm64-v8a" }
         externalNativeBuild {
@@ -25,7 +25,7 @@ android {
         // therefore cannot safely be upgraded in place. Use a distinct preview
         // application ID so the user can preserve the original app and its history.
         debug {
-            applicationIdSuffix = ".preview.gigaam"
+            applicationIdSuffix = ".preview.gigaam.startfix"
         }
         release {
             isMinifyEnabled = false
