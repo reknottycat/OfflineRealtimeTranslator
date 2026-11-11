@@ -339,7 +339,9 @@ class MainActivity : AppCompatActivity() {
                 lastModelLoadError = null
                 binding.btnStartStop.isEnabled = true
                 binding.btnStartStop.alpha = 0.9f
-                updateStatus(if (initialized.third) AppStatus.Ready else AppStatus.AsrOnly)
+                updateStatus(if (HomeStartPolicy.mode(voskAsr != null, initialized.third) ==
+                    HomeStartPolicy.Mode.FULL_TRANSLATION) AppStatus.Ready
+                    else AppStatus.AsrOnly)
                 // Opening the app or changing an engine must not automatically turn the microphone on.
             } catch (e: CancellationException) {
                 throw e
@@ -395,7 +397,8 @@ class MainActivity : AppCompatActivity() {
             updateStatus(AppStatus.Loading("正在初始化俄语识别模型，请完成后再点击开始"))
             return
         }
-        if (voskAsr == null) {
+        if (HomeStartPolicy.mode(voskAsr != null,
+                gemmaTranslator?.isAvailable() == true) == HomeStartPolicy.Mode.NEED_ASR) {
             val name = when (currentAsrModel) {
                 AppSettings.ASR_MODEL_GIGAAM -> "GigaAM v2 Russian INT8（236 MB ONNX）"
                 AppSettings.ASR_MODEL_LARGE -> "Vosk Large 0.42"
@@ -532,11 +535,13 @@ class MainActivity : AppCompatActivity() {
         // Never hide remediation behind an untappable disabled Start button.
         binding.btnStartStop.isEnabled = true
         binding.btnStartStop.alpha = 0.9f
-        updateStatus(when {
-            pending -> AppStatus.Loading("正在完成最后一段识别或翻译，自动保存中")
-            voskAsr == null -> AppStatus.Error(lastModelLoadError ?: "所选 ASR 尚未就绪，点开始进入设置")
-            gemmaTranslator?.isAvailable() == true -> AppStatus.Ready
-            else -> AppStatus.AsrOnly
+        updateStatus(if (pending) AppStatus.Loading("正在完成最后一段识别或翻译，自动保存中")
+        else when (HomeStartPolicy.mode(voskAsr != null,
+            gemmaTranslator?.isAvailable() == true)) {
+            HomeStartPolicy.Mode.NEED_ASR ->
+                AppStatus.Error(lastModelLoadError ?: "所选 ASR 尚未就绪，点开始进入设置")
+            HomeStartPolicy.Mode.ASR_ONLY -> AppStatus.AsrOnly
+            HomeStartPolicy.Mode.FULL_TRANSLATION -> AppStatus.Ready
         })
     }
 
