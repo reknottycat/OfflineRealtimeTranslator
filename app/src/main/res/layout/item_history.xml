@@ -3,13 +3,13 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="76dp"
-    android:layout_marginHorizontal="8dp"
-    android:layout_marginVertical="3dp"
-    app:cardBackgroundColor="#FF1E1E1E"
-    app:cardCornerRadius="8dp"
+    android:layout_height="96dp"
+    android:layout_marginHorizontal="12dp"
+    android:layout_marginVertical="5dp"
+    app:cardBackgroundColor="#FF222323"
+    app:cardCornerRadius="17dp"
     app:cardElevation="0dp"
-    app:strokeColor="#FF333333"
+    app:strokeColor="#FF393A3A"
     app:strokeWidth="1dp">
 
     <LinearLayout
@@ -17,8 +17,8 @@
         android:layout_height="match_parent"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:paddingStart="4dp"
-        android:paddingEnd="8dp">
+        android:paddingStart="13dp"
+        android:paddingEnd="12dp">
 
         <!-- Favorite star button (always visible, left side) -->
         <ImageButton
@@ -38,15 +38,15 @@
             android:orientation="vertical"
             android:gravity="center_vertical"
             android:paddingStart="4dp"
-            android:paddingEnd="4dp">
+            android:paddingEnd="6dp">
 
             <!-- Title: timestamp + first 2 Chinese chars -->
             <TextView
                 android:id="@+id/tv_title"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textSize="13sp"
-                android:textColor="#FFDDDDDD"
+                android:textSize="14sp"
+                android:textColor="#FFF4F4F4"
                 android:maxLines="1"
                 android:ellipsize="end" />
 
@@ -55,9 +55,9 @@
                 android:id="@+id/tv_preview_zh"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
+                android:layout_marginTop="5dp"
                 android:textSize="12sp"
-                android:textColor="#FFFFEECC"
+                android:textColor="#FFE5E7E5"
                 android:maxLines="1"
                 android:ellipsize="end" />
 
@@ -68,7 +68,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="1dp"
                 android:textSize="11sp"
-                android:textColor="#FF99BBDD"
+                android:textColor="#FFA9C7BD"
                 android:maxLines="1"
                 android:ellipsize="end" />
         </LinearLayout>
