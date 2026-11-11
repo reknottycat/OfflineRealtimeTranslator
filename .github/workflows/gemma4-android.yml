@@ -82,10 +82,17 @@ jobs:
             grep -Fxq "assets/qwen-npu-runtime/$dispatcher" dist/apk-contents.txt
             cmp <(unzip -p "$APK_PATH" "assets/qwen-npu-runtime/$dispatcher") \
               <(unzip -p app/libs/litert-npu-runtime-qualcomm-2.3.0.aar "jni/arm64-v8a/$dispatcher")
+            for qairt_version in 2.40.0 2.50.0; do
+              for notice in LICENSE.pdf NOTICE.txt; do
+                grep -Fxq "assets/qualcomm-licenses/$qairt_version/$notice" dist/apk-contents.txt
+                cmp <(unzip -p "$APK_PATH" "assets/qualcomm-licenses/$qairt_version/$notice") \
+                  <(unzip -p "app/libs/qnn-runtime-$qairt_version.aar" "$notice")
+              done
+            done
             grep -Fq "OrtGetApiBase@VERS_$ort_version" "$RUNNER_TEMP/apk-abi/libsherpa-onnx-jni.so.symbols"
           else
             ort_version=1.17.3
-            if grep -Eq '^(lib/arm64-v8a/libQnnHtp\.so|lib/arm64-v8a/libLiteRt\.so|assets/qwen-npu-runtime/)' dist/apk-contents.txt; then
+            if grep -Eq '^(lib/arm64-v8a/libQnnHtp\.so|lib/arm64-v8a/libLiteRt\.so|assets/(qwen-npu-runtime|qualcomm-licenses)/)' dist/apk-contents.txt; then
               echo 'Unexpected Qualcomm runtime in the CPU APK' >&2
               exit 1
             fi

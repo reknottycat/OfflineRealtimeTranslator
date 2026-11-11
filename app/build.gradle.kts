@@ -77,7 +77,7 @@ if (enableQnn) {
     // LiteRT 2.3.0's dispatcher is built with QAIRT 2.50. Keep it separate from
     // the 2.40 runtime that the Nemotron service uses for its context binaries.
     val prepareQwenNpuAssets = tasks.register<Sync>("prepareQwenNpuAssets") {
-        into(qwenNpuAssets.map { it.dir("qwen-npu-runtime") })
+        into(qwenNpuAssets)
         from(zipTree("libs/qnn-runtime-2.50.0.aar")) {
             include(
                 "jni/arm64-v8a/libQnnHtp.so",
@@ -87,13 +87,19 @@ if (enableQnn) {
                 "jni/arm64-v8a/libQnnHtpV81Stub.so",
                 "jni/arm64-v8a/libQnnHtpV81Skel.so",
             )
-            eachFile { path = name }
+            eachFile { path = "qwen-npu-runtime/$name" }
             includeEmptyDirs = false
         }
         from(zipTree("libs/litert-npu-runtime-qualcomm-$liteRtVersion.aar")) {
             include("jni/arm64-v8a/libLiteRtDispatch_Qualcomm.so")
-            eachFile { path = name }
+            eachFile { path = "qwen-npu-runtime/$name" }
             includeEmptyDirs = false
+        }
+        for (version in listOf("2.40.0", "2.50.0")) {
+            from(zipTree("libs/qnn-runtime-$version.aar")) {
+                into("qualcomm-licenses/$version")
+                include("LICENSE.pdf", "NOTICE.txt")
+            }
         }
     }
     android.sourceSets["main"].assets.srcDir(qwenNpuAssets.get().asFile)
