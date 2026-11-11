@@ -1,12 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <TextView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@android:id/text1"
-    android:layout_width="wrap_content"
-    android:layout_height="35dp"
-    android:gravity="center_vertical"
-    android:paddingStart="4dp"
-    android:paddingEnd="0dp"
-    android:textSize="12sp"
-    android:textColor="#FFCCCCCC"
-    android:singleLine="true"
-    android:ellipsize="none" />
+    android:id="@android:id/text1" android:layout_width="match_parent"
+    android:layout_height="48dp" android:gravity="center_vertical"
+    android:paddingHorizontal="12dp" android:textSize="13sp"
+    android:textColor="#FFF0F0F0" android:singleLine="true"
+    android:ellipsize="end"/>
