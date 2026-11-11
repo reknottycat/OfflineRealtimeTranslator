@@ -22,6 +22,11 @@ import com.bohanli.ruzhtranslator.asr.VoskAsrManager
 import com.bohanli.ruzhtranslator.asr.AsrEngine
 import com.bohanli.ruzhtranslator.asr.GigaAmAsrManager
 import com.bohanli.ruzhtranslator.asr.GigaAmCatalog
+import com.bohanli.ruzhtranslator.asr.AsrBundleCatalog
+import com.bohanli.ruzhtranslator.asr.AsrBundleDownloader
+import com.bohanli.ruzhtranslator.asr.AsrRoutingPolicy
+import com.bohanli.ruzhtranslator.asr.AsrComputePolicy
+import com.bohanli.ruzhtranslator.asr.NemotronStreamingAsrManager
 import com.bohanli.ruzhtranslator.core.AppStatus
 import com.bohanli.ruzhtranslator.core.ModelCatalog
 import com.bohanli.ruzhtranslator.core.ModelManager
@@ -71,6 +76,8 @@ class MainActivity : AppCompatActivity() {
     @Volatile private var isPaused = false
     private var lastPartial = ""
     private var currentAsrModel = AppSettings.ASR_MODEL_SMALL
+    private var currentAsrLanguage = AppSettings.ASR_LANG_RU
+    private var currentAsrCompute = AppSettings.ASR_COMPUTE_AUTO
     private var currentTranslationEngine = AppSettings.ENGINE_GEMMA4
     private var currentInferenceBackend = AppSettings.BACKEND_AUTO
     private var currentModelGeneration = 0
@@ -97,6 +104,8 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         currentAsrModel = AppSettings.asrModel
+        currentAsrLanguage = AppSettings.asrLanguage
+        currentAsrCompute = AppSettings.asrCompute
         currentTranslationEngine = AppSettings.translationEngine
         currentInferenceBackend = AppSettings.inferenceBackend
         currentModelGeneration = AppSettings.modelGeneration
@@ -109,7 +118,8 @@ class MainActivity : AppCompatActivity() {
         // Apply all settings at a clean session boundary, even when the old model was missing.
         if (settingsOpened || AppSettings.translationEngine != currentTranslationEngine ||
             AppSettings.inferenceBackend != currentInferenceBackend ||
-            AppSettings.modelGeneration != currentModelGeneration || AppSettings.asrModel != currentAsrModel) {
+            AppSettings.modelGeneration != currentModelGeneration || AppSettings.asrModel != currentAsrModel ||
+            AppSettings.asrLanguage != currentAsrLanguage || AppSettings.asrCompute != currentAsrCompute) {
             settingsOpened = false
             recreate()
         }
@@ -151,7 +161,8 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, HistoryActivity::class.java).putExtra("tab", 1))
         }
         binding.btnSettings.setOnClickListener {
-            if (currentAsrModel == AppSettings.ASR_MODEL_GIGAAM &&
+            if (currentAsrModel in listOf(AppSettings.ASR_MODEL_GIGAAM,
+            AppSettings.ASR_MODEL_QWEN3, AppSettings.ASR_MODEL_NEMOTRON35) &&
                 voskAsr?.hasPendingResults() == true) {
                 updateStatus(AppStatus.Loading("正在完成最后一段俄语识别，请稍后进入设置"))
                 return@setOnClickListener
@@ -269,22 +280,56 @@ class MainActivity : AppCompatActivity() {
                 }
                 val initialized = coroutineScope {
                     val asr = async(Dispatchers.IO) {
-                        val instance: AsrEngine = if (currentAsrModel == AppSettings.ASR_MODEL_GIGAAM) {
-                            val dir = ModelManager.getModelDir(this@MainActivity, GigaAmCatalog.MODEL_ID)
-                                ?: error("GigaAM v2 俄语模型未安装，请在设置中点选第三套 ASR 模型并下载")
-                            check(ModelDownloader(this@MainActivity, GigaAmCatalog.SPEC).installed()) {
-                                "GigaAM v2 模型未通过 SHA-256 身份验证，请重新下载或导入官方 ONNX 文件"
+                        check(AsrRoutingPolicy.supportsLanguage(currentAsrModel, currentAsrLanguage)) {
+                            "当前 Vosk/GigaAM 是俄语专用模型，不支持中文/英文/自动语言识别。请手动选择俄语，或改用 Qwen3/Nemotron 多语言引擎。"
+                        }
+                        val hw = AsrComputePolicy.select(currentAsrCompute)
+                        check(hw.provider != "unsupported") { hw.description }
+                        val instance: AsrEngine = when (currentAsrModel) {
+                            AppSettings.ASR_MODEL_QWEN3 -> {
+                                val bundle = AsrBundleCatalog.QWEN
+                                check(AsrBundleDownloader(this@MainActivity, bundle).installed()) {
+                                    "Qwen3-ASR-0.6B INT8 模型尚未完整下载，请进入设置"
+                                }
+                                val dir = ModelManager.getModelDir(this@MainActivity, bundle.id)
+                                    ?: error("Qwen3 模型目录不存在")
+                                GigaAmAsrManager(this@MainActivity, dir,
+                                    { onVoskPartial(it) }, { onAsrFinal(it, null) },
+                                    { updateStatus(AppStatus.Error(it)) },
+                                    { refreshStoppedState() }, modelId = bundle.id,
+                                    onDetected = { text, language -> onAsrFinal(text, language) })
                             }
-                            GigaAmAsrManager(this@MainActivity, dir,
-                                { onVoskPartial(it) }, { onVoskFinal(it) },
-                                { updateStatus(AppStatus.Error(it)) },
-                                { refreshStoppedState() })
-                        } else {
-                            val dir = ModelManager.getModelDir(this@MainActivity, currentAsrModel)
-                                ?: error("Vosk 俄语模型未安装（$currentAsrModel），请在设置中选择 Small/Large 并下载")
-                            VoskAsrManager(dir.absolutePath,
-                                { onVoskPartial(it) }, { onVoskFinal(it) },
-                                { updateStatus(AppStatus.Error(it)) })
+                            AppSettings.ASR_MODEL_NEMOTRON35 -> {
+                                val bundle = AsrBundleCatalog.NEMOTRON
+                                check(AsrBundleDownloader(this@MainActivity, bundle).installed()) {
+                                    "Nemotron 3.5 INT8 模型尚未完整下载，请进入设置"
+                                }
+                                val dir = ModelManager.getModelDir(this@MainActivity, bundle.id)
+                                    ?: error("Nemotron 模型目录不存在")
+                                NemotronStreamingAsrManager(this@MainActivity, dir,
+                                    currentAsrLanguage, { onVoskPartial(it) },
+                                    { text, language -> onAsrFinal(text, language) },
+                                    { updateStatus(AppStatus.Error(it)) },
+                                    { refreshStoppedState() })
+                            }
+                            AppSettings.ASR_MODEL_GIGAAM -> {
+                                val dir = ModelManager.getModelDir(this@MainActivity, GigaAmCatalog.MODEL_ID)
+                                    ?: error("GigaAM 俄语模型尚未安装")
+                                check(ModelDownloader(this@MainActivity, GigaAmCatalog.SPEC).installed()) {
+                                    "GigaAM v2 ONNX 模型尚未经过校验"
+                                }
+                                GigaAmAsrManager(this@MainActivity, dir,
+                                    { onVoskPartial(it) }, { onAsrFinal(it, "ru") },
+                                    { updateStatus(AppStatus.Error(it)) },
+                                    { refreshStoppedState() })
+                            }
+                            else -> {
+                                val dir = ModelManager.getModelDir(this@MainActivity, currentAsrModel)
+                                    ?: error("Vosk 俄语模型未安装（$currentAsrModel）")
+                                VoskAsrManager(dir.absolutePath,
+                                    { onVoskPartial(it) }, { onAsrFinal(it, "ru") },
+                                    { updateStatus(AppStatus.Error(it)) })
+                            }
                         }
                         startupAsr = instance
                         instance.initialize()
@@ -374,10 +419,14 @@ class MainActivity : AppCompatActivity() {
         lastPartial = partial
         updateRussianDisplay(partial)
     }
-    private fun onVoskFinal(rawText: String) {
+    private fun onAsrFinal(rawText: String, reportedLanguage: String?) {
         if (settingsOpened || isDestroyed) return
         lastPartial = ""
         if (rawText.isBlank()) { updateRussianDisplay(); return }
+        val source = AsrRoutingPolicy.resolvedLanguage(
+            currentAsrLanguage, reportedLanguage, rawText)
+        val needsTranslation = AsrRoutingPolicy.mayTranslateIntoChinese(source)
+        val label = AsrRoutingPolicy.badge(source)
         val rcp = recasepunc
         val queue = translationQueue
         val epoch = sessionEpoch
@@ -385,12 +434,20 @@ class MainActivity : AppCompatActivity() {
         mainScope.launch {
             try {
                 val processed = withContext(Dispatchers.IO) {
-                    rcp?.takeIf { it.isAvailable() }?.process(rawText) ?: rawText
+                    if (needsTranslation) {
+                        rcp?.takeIf { it.isAvailable() }?.process(rawText) ?: rawText
+                    } else rawText
                 }
                 if (epoch == sessionEpoch && !settingsOpened && processed.isNotBlank()) {
-                    appendRussianSegment(processed) // Auto-save now, not when Activity is destroyed.
+                    val subtitle = if (source == AppSettings.ASR_LANG_RU) processed
+                        else "[$label] $processed"
+                    binding.tvSourceLanguage.text = if (source == AppSettings.ASR_LANG_RU)
+                        "俄语原文" else "语音识别 · $label"
+                    appendRussianSegment(subtitle)
                     updateRussianDisplay()
-                    queue?.submit(processed)
+                    // CRITICAL: Never submit Chinese or English speech to the RU->ZH translator.
+                    if (needsTranslation) queue?.submit(processed)
+                    else binding.tvTargetLanguage.text = "中文译文 · 仅支持俄语→中文"
                 }
             } finally {
                 pendingAsrResults = (pendingAsrResults - 1).coerceAtLeast(0)
@@ -407,6 +464,8 @@ class MainActivity : AppCompatActivity() {
                 gemmaTranslator?.isAvailable() == true) == HomeStartPolicy.Mode.NEED_ASR) {
             val name = when (currentAsrModel) {
                 AppSettings.ASR_MODEL_GIGAAM -> "GigaAM v2 Russian INT8（236 MB ONNX）"
+                AppSettings.ASR_MODEL_QWEN3 -> "Qwen3-ASR-0.6B INT8（约 987 MB）"
+                AppSettings.ASR_MODEL_NEMOTRON35 -> "Nemotron 3.5 Streaming INT8（约 682 MB）"
                 AppSettings.ASR_MODEL_LARGE -> "Vosk Large 0.42"
                 else -> "Vosk Small 0.22"
             }
@@ -450,10 +509,12 @@ class MainActivity : AppCompatActivity() {
         isListening = false; isPaused = false
         voskAsr?.stopListening()
         translationQueue?.resume()
-        if (lastPartial.isNotBlank() && currentAsrModel != AppSettings.ASR_MODEL_GIGAAM) {
+        if (lastPartial.isNotBlank() && currentAsrModel !in listOf(AppSettings.ASR_MODEL_GIGAAM,
+            AppSettings.ASR_MODEL_QWEN3, AppSettings.ASR_MODEL_NEMOTRON35)) {
             val text = lastPartial; lastPartial = ""
             appendRussianSegment(text); translationQueue?.submit(text)
-        } else if (currentAsrModel == AppSettings.ASR_MODEL_GIGAAM) {
+        } else if (currentAsrModel in listOf(AppSettings.ASR_MODEL_GIGAAM,
+            AppSettings.ASR_MODEL_QWEN3, AppSettings.ASR_MODEL_NEMOTRON35)) {
             // Offline GigaAM may still be decoding a *final* utterance after Stop.
             // Never persist speculative partial text as a second completed sentence.
             lastPartial = ""
@@ -468,11 +529,13 @@ class MainActivity : AppCompatActivity() {
     private fun pauseListening() {
         isPaused = true
         voskAsr?.stopListening()
-        if (lastPartial.isNotBlank() && currentAsrModel != AppSettings.ASR_MODEL_GIGAAM) {
+        if (lastPartial.isNotBlank() && currentAsrModel !in listOf(AppSettings.ASR_MODEL_GIGAAM,
+            AppSettings.ASR_MODEL_QWEN3, AppSettings.ASR_MODEL_NEMOTRON35)) {
             val text = lastPartial; lastPartial = ""
             appendRussianSegment(text); translationQueue?.submit(text)
             updateRussianDisplay()
-        } else if (currentAsrModel == AppSettings.ASR_MODEL_GIGAAM) {
+        } else if (currentAsrModel in listOf(AppSettings.ASR_MODEL_GIGAAM,
+            AppSettings.ASR_MODEL_QWEN3, AppSettings.ASR_MODEL_NEMOTRON35)) {
             lastPartial = ""
             updateRussianDisplay()
         }
@@ -487,7 +550,8 @@ class MainActivity : AppCompatActivity() {
             updateStatus(AppStatus.Error("俄语识别模型未就绪，请进入设置重新检查"))
             return
         }
-        if (currentAsrModel == AppSettings.ASR_MODEL_GIGAAM &&
+        if (currentAsrModel in listOf(AppSettings.ASR_MODEL_GIGAAM,
+            AppSettings.ASR_MODEL_QWEN3, AppSettings.ASR_MODEL_NEMOTRON35) &&
             voskAsr?.hasPendingResults() == true) {
             updateStatus(AppStatus.Loading("正在保存暂停前最后一句俄语，完成后再继续"))
             return
@@ -557,6 +621,8 @@ class MainActivity : AppCompatActivity() {
                 ModelCatalog.forEngine(currentTranslationEngine).title
             else when (currentAsrModel) {
                 AppSettings.ASR_MODEL_GIGAAM -> "GigaAM v2 俄语识别"
+                AppSettings.ASR_MODEL_QWEN3 -> "Qwen3-ASR 0.6B"
+                AppSettings.ASR_MODEL_NEMOTRON35 -> "Nemotron 3.5 Streaming"
                 AppSettings.ASR_MODEL_LARGE -> "Vosk Large 俄语识别"
                 else -> "Vosk Small 俄语识别"
             }

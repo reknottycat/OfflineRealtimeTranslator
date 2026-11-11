@@ -27,7 +27,7 @@ object GigaAmCatalog {
         val mirror = SPEC.url("hf-mirror.com")
         val official = SPEC.url("huggingface.co")
         val preferred = when (source) {
-            VoskModelCatalog.SOURCE_AUTO, VoskModelCatalog.SOURCE_DOMESTIC -> listOf(mirror)
+            VoskModelCatalog.SOURCE_AUTO, VoskModelCatalog.SOURCE_DOMESTIC, AppSettings.SOURCE_MODELSCOPE -> listOf(mirror)
             VoskModelCatalog.SOURCE_OFFICIAL -> listOf(official)
             VoskModelCatalog.SOURCE_CUSTOM -> {
                 require(custom.trim().startsWith("https://", true)) { "仅支持 HTTPS ONNX 模型直链" }

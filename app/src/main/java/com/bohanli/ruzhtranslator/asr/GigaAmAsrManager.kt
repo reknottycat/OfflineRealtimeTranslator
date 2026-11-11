@@ -12,6 +12,7 @@ import androidx.core.content.ContextCompat
 import com.k2fsa.sherpa.onnx.FeatureConfig
 import com.k2fsa.sherpa.onnx.OfflineModelConfig
 import com.k2fsa.sherpa.onnx.OfflineNemoEncDecCtcModelConfig
+import com.k2fsa.sherpa.onnx.OfflineQwen3AsrModelConfig
 import com.k2fsa.sherpa.onnx.OfflineRecognizer
 import com.k2fsa.sherpa.onnx.OfflineRecognizerConfig
 import java.io.File
@@ -42,7 +43,9 @@ class GigaAmAsrManager(
     private val onPartial: (String) -> Unit,
     private val onFinalResult: (String) -> Unit,
     private val onError: (String) -> Unit,
-    private val onIdle: () -> Unit = {}
+    private val onIdle: () -> Unit = {},
+    private val modelId: String = GigaAmCatalog.MODEL_ID,
+    private val onDetected: ((String, String?) -> Unit)? = null
 ) : AsrEngine {
     companion object {
         private const val TAG = "GigaAmAsrManager"
@@ -68,32 +71,49 @@ class GigaAmAsrManager(
 
     override suspend fun initialize(): Unit = withContext(Dispatchers.IO) {
         try {
-            val model = File(modelDirectory, GigaAmCatalog.MODEL_FILE)
-            require(model.isFile && model.length() == GigaAmCatalog.MODEL_BYTES) {
-                "GigaAM ONNX 文件不存在或大小不符，请在设置中下载已核验版本"
-            }
-            val tokens = File(modelDirectory, GigaAmCatalog.TOKENS_FILE)
-            if (!tokens.exists()) {
-                appContext.assets.open(GigaAmCatalog.TOKENS_ASSET).use { source ->
-                    tokens.outputStream().use { target -> source.copyTo(target) }
+            val config = if (modelId == AsrBundleCatalog.QWEN.id) {
+                val qwen = AsrBundleCatalog.QWEN
+                check(AsrBundleDownloader(appContext, qwen).installed()) {
+                    "Qwen3-ASR ONNX 模型文件未下载完整"
                 }
-            }
-            require(tokens.isFile && tokens.readLines().size == 34) {
-                "GigaAM 俄语 tokenizer 未正确安装"
-            }
-            val config = OfflineRecognizerConfig(
-                featConfig = FeatureConfig(sampleRate = SAMPLE_RATE, featureDim = 80),
-                modelConfig = OfflineModelConfig(
-                    nemo = OfflineNemoEncDecCtcModelConfig(model = model.absolutePath),
-                    tokens = tokens.absolutePath,
-                    modelType = "nemo_ctc",
-                    numThreads = 2,
-                    provider = "cpu"
+                val qwenConfig = OfflineQwen3AsrModelConfig(
+                    convFrontend = File(modelDirectory, "conv_frontend.onnx").absolutePath,
+                    encoder = File(modelDirectory, "encoder.int8.onnx").absolutePath,
+                    decoder = File(modelDirectory, "decoder.int8.onnx").absolutePath,
+                    tokenizer = File(modelDirectory, "tokenizer").absolutePath,
+                    maxTotalLen = 512,
+                    maxNewTokens = 128
                 )
-            )
+                OfflineRecognizerConfig(
+                    featConfig = FeatureConfig(sampleRate = SAMPLE_RATE, featureDim = 80),
+                    modelConfig = OfflineModelConfig(
+                        qwen3Asr = qwenConfig, numThreads = 2, provider = "cpu")
+                )
+            } else {
+                val model = File(modelDirectory, GigaAmCatalog.MODEL_FILE)
+                require(model.isFile && model.length() == GigaAmCatalog.MODEL_BYTES) {
+                    "GigaAM ONNX 文件不存在或大小不符，请在设置中下载已核验版本"
+                }
+                val tokens = File(modelDirectory, GigaAmCatalog.TOKENS_FILE)
+                if (!tokens.exists()) {
+                    appContext.assets.open(GigaAmCatalog.TOKENS_ASSET).use { source ->
+                        tokens.outputStream().use { target -> source.copyTo(target) }
+                    }
+                }
+                require(tokens.isFile && tokens.readLines().size == 34) {
+                    "GigaAM 俄语 tokenizer 未正确安装"
+                }
+                OfflineRecognizerConfig(
+                    featConfig = FeatureConfig(sampleRate = SAMPLE_RATE, featureDim = 80),
+                    modelConfig = OfflineModelConfig(
+                        nemo = OfflineNemoEncDecCtcModelConfig(model = model.absolutePath),
+                        tokens = tokens.absolutePath, modelType = "nemo_ctc",
+                        numThreads = 2, provider = "cpu")
+                )
+            }
             recognizer = OfflineRecognizer(config = config)
             decodeJob = scope.launch { decodeLoop() }
-            Log.i(TAG, "GigaAM v2 Russian CTC ready (CPU), model=" + model.absolutePath)
+            Log.i(TAG, "Sherpa offline ASR CPU ready, model=" + modelId)
         } catch (failure: Exception) {
             Log.e(TAG, "GigaAM initialization failed", failure)
             withContext(Dispatchers.Main) {
@@ -282,16 +302,22 @@ class GigaAmAsrManager(
             decoderBusy.set(true)
             try {
                 val stream = worker.createStream()
-                val result = try {
+                val recognized = try {
                     stream.acceptWaveform(request.samples, SAMPLE_RATE)
                     worker.decode(stream)
-                    worker.getResult(stream).text.trim()
+                    worker.getResult(stream)
                 } finally { stream.release() }
+                val result = recognized.text.trim()
+                val detected = recognized.lang
                 withContext(Dispatchers.Main) {
                     if (!shuttingDown && request.epoch == epoch.get()) {
                         if (request.final) {
                             onPartial("")
-                            if (result.isNotBlank()) onFinalResult(result)
+                            if (result.isNotBlank()) {
+                                val handler = onDetected
+                                if (handler != null) handler(result, detected)
+                                else onFinalResult(result)
+                            }
                         } else {
                             onPartial(result)
                         }

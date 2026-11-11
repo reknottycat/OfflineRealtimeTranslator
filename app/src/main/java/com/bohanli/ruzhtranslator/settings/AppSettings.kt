@@ -9,6 +9,8 @@ object AppSettings {
     private const val KEY_DRIFT_RETRY = "drift_retry_enabled"
     private const val KEY_ASR_MODEL = "asr_model"
     private const val KEY_ASR_SOURCE = "asr_download_source"
+    private const val KEY_ASR_LANGUAGE = "asr_language_mode"
+    private const val KEY_ASR_COMPUTE = "asr_compute_mode"
     private const val KEY_TRANSLATION_ENGINE = "translation_engine"
     private const val KEY_INFERENCE_BACKEND = "inference_backend"
     private const val KEY_MODEL_SOURCE = "model_source"
@@ -17,6 +19,16 @@ object AppSettings {
     const val ASR_MODEL_SMALL = "vosk-model-small-ru-0.22"
     const val ASR_MODEL_LARGE = "vosk-model-ru-0.42"
     const val ASR_MODEL_GIGAAM = "sherpa-gigaam-v2-ru"
+    const val ASR_MODEL_QWEN3 = "sherpa-qwen3-asr-0.6b-int8"
+    const val ASR_MODEL_NEMOTRON35 = "sherpa-nemotron-3.5-asr-0.6b-int8"
+    const val ASR_LANG_AUTO = "auto"
+    const val ASR_LANG_RU = "ru"
+    const val ASR_LANG_ZH = "zh"
+    const val ASR_LANG_EN = "en"
+    const val ASR_COMPUTE_AUTO = "auto"
+    const val ASR_COMPUTE_CPU = "cpu"
+    const val ASR_COMPUTE_GPU = "gpu"
+    const val ASR_COMPUTE_NPU = "npu"
     const val ENGINE_GEMMA4 = "gemma4"
     const val ENGINE_LMT = "lmt"
     const val ENGINE_HYMT2 = "hy-mt2"
@@ -58,8 +70,16 @@ object AppSettings {
         get() = prefs?.getString(KEY_ASR_MODEL, ASR_MODEL_SMALL) ?: ASR_MODEL_SMALL
         set(value) { prefs?.edit()?.putString(KEY_ASR_MODEL, value)?.apply() }
     var asrSource: String
-        get() = prefs?.getString(KEY_ASR_SOURCE, "auto") ?: "auto"
+        get() = prefs?.getString(KEY_ASR_SOURCE, "modelscope") ?: "modelscope"
         set(value) { prefs?.edit()?.putString(KEY_ASR_SOURCE, value)?.apply() }
+    /** Explicit language choice; RU default preserves legacy Russian-only behavior. */
+    var asrLanguage: String
+        get() = prefs?.getString(KEY_ASR_LANGUAGE, ASR_LANG_RU) ?: ASR_LANG_RU
+        set(value) { prefs?.edit()?.putString(KEY_ASR_LANGUAGE, value)?.apply() }
+    /** Requested compute mode; hardware is only used when native backend confirms it. */
+    var asrCompute: String
+        get() = prefs?.getString(KEY_ASR_COMPUTE, ASR_COMPUTE_AUTO) ?: ASR_COMPUTE_AUTO
+        set(value) { prefs?.edit()?.putString(KEY_ASR_COMPUTE, value)?.apply() }
     var translationEngine: String
         get() = prefs?.getString(KEY_TRANSLATION_ENGINE, ENGINE_GEMMA4) ?: ENGINE_GEMMA4
         set(value) { prefs?.edit()?.putString(KEY_TRANSLATION_ENGINE, value)?.apply() }

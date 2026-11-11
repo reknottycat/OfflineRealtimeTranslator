@@ -14,6 +14,10 @@ import androidx.appcompat.widget.AppCompatRadioButton
 import com.bohanli.ruzhtranslator.R
 import com.bohanli.ruzhtranslator.asr.VoskModelCatalog
 import com.bohanli.ruzhtranslator.asr.GigaAmCatalog
+import com.bohanli.ruzhtranslator.asr.AsrBundleCatalog
+import com.bohanli.ruzhtranslator.asr.AsrBundleDownloader
+import com.bohanli.ruzhtranslator.asr.AsrComputePolicy
+import com.bohanli.ruzhtranslator.asr.AsrRoutingPolicy
 import com.bohanli.ruzhtranslator.asr.VoskArchiveInstaller
 import com.bohanli.ruzhtranslator.core.ModelManager
 import com.bohanli.ruzhtranslator.core.ModelCatalog
@@ -33,8 +37,12 @@ class SettingsActivity : AppCompatActivity() {
     private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val sourceKeys = listOf(AppSettings.SOURCE_AUTO, AppSettings.SOURCE_MODELSCOPE,
         AppSettings.SOURCE_HF_MIRROR, AppSettings.SOURCE_CN_PROXY, AppSettings.SOURCE_HF, AppSettings.SOURCE_CUSTOM)
-    private val asrSourceKeys = listOf(VoskModelCatalog.SOURCE_AUTO, VoskModelCatalog.SOURCE_DOMESTIC,
-        VoskModelCatalog.SOURCE_OFFICIAL, VoskModelCatalog.SOURCE_CUSTOM)
+    private val asrSourceKeys = listOf(AppSettings.SOURCE_MODELSCOPE,
+        VoskModelCatalog.SOURCE_DOMESTIC, VoskModelCatalog.SOURCE_OFFICIAL, VoskModelCatalog.SOURCE_CUSTOM)
+    private val languageKeys = listOf(AppSettings.ASR_LANG_RU, AppSettings.ASR_LANG_ZH,
+        AppSettings.ASR_LANG_EN, AppSettings.ASR_LANG_AUTO)
+    private val computeKeys = listOf(AppSettings.ASR_COMPUTE_AUTO, AppSettings.ASR_COMPUTE_CPU,
+        AppSettings.ASR_COMPUTE_GPU, AppSettings.ASR_COMPUTE_NPU)
     private var renderedAsr = AppSettings.ASR_MODEL_SMALL
     private var asrDownloading = false
     private var pendingImportAsr = AppSettings.ASR_MODEL_SMALL
@@ -99,8 +107,10 @@ class SettingsActivity : AppCompatActivity() {
                 bottomMargin = (7 * resources.displayMetrics.density).toInt()
             })
         binding.btnBack.setOnClickListener { finish() }
-        binding.tvVersion.text = "v4.2-alpha · 界面重构 · GigaAM / Vosk / 三翻译引擎"
+        binding.tvVersion.text = "v4.3-alpha · 国内源优先 · 可选多语言 ASR · CPU 受控资源"
         binding.radioAsrModel.check(when (AppSettings.asrModel) {
+            AppSettings.ASR_MODEL_QWEN3 -> binding.rbAsrQwen.id
+            AppSettings.ASR_MODEL_NEMOTRON35 -> binding.rbAsrNemotron.id
             AppSettings.ASR_MODEL_GIGAAM -> binding.rbAsrGigaam.id
             AppSettings.ASR_MODEL_LARGE -> binding.rbAsrLarge.id
             else -> binding.rbAsrSmall.id
@@ -109,6 +119,8 @@ class SettingsActivity : AppCompatActivity() {
             if (busy) return@setOnCheckedChangeListener
             customUrls.edit().putString("vosk:" + renderedAsr, binding.etAsrUrl.text.toString()).apply()
             AppSettings.asrModel = when (id) {
+                binding.rbAsrQwen.id -> AppSettings.ASR_MODEL_QWEN3
+                binding.rbAsrNemotron.id -> AppSettings.ASR_MODEL_NEMOTRON35
                 binding.rbAsrGigaam.id -> AppSettings.ASR_MODEL_GIGAAM
                 binding.rbAsrLarge.id -> AppSettings.ASR_MODEL_LARGE
                 else -> AppSettings.ASR_MODEL_SMALL
@@ -116,8 +128,9 @@ class SettingsActivity : AppCompatActivity() {
             refreshAsrUi()
         }
         binding.spinnerAsrSource.adapter = ArrayAdapter(this, R.layout.spinner_item,
-            arrayOf("自动 · 国内 HF Mirror 优先（Small/GigaAM）", "国内镜像优先（Large 只使用官方）",
-                "模型官方源优先", "自定义 HTTPS ZIP / ONNX 直链"))
+            arrayOf("国内优先：ModelScope 兼容文件 → HF Mirror",
+                "国内 HF Mirror 优先", "已有 Vosk 官方源（仅原 Vosk 模型）",
+                "自定义国内 HTTPS 镜像地址"))
             .also { it.setDropDownViewResource(R.layout.spinner_dropdown_item) }
         binding.spinnerAsrSource.setSelection(asrSourceKeys.indexOf(AppSettings.asrSource).coerceAtLeast(0))
         binding.spinnerAsrSource.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
@@ -127,7 +140,50 @@ class SettingsActivity : AppCompatActivity() {
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
+        binding.spinnerAsrLanguage.adapter = ArrayAdapter(this, R.layout.spinner_item,
+            arrayOf("俄语（手动）", "中文（手动）", "英文（手动）", "自动识别（仅 Qwen3 / Nemotron）"))
+            .also { it.setDropDownViewResource(R.layout.spinner_dropdown_item) }
+        binding.spinnerAsrLanguage.setSelection(languageKeys.indexOf(AppSettings.asrLanguage).coerceAtLeast(0))
+        binding.spinnerAsrLanguage.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                AppSettings.asrLanguage = languageKeys[position]
+                refreshAsrSource()
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+        binding.spinnerAsrCompute.adapter = ArrayAdapter(this, R.layout.spinner_item,
+            arrayOf("自动 · 限制 ASR CPU 为 2 线程（已接入）",
+                "仅 CPU · 2 线程（已接入）",
+                "GPU 加速 · 实验，当前不可用",
+                "NPU 加速 · 实验，当前不可用"))
+            .also { it.setDropDownViewResource(R.layout.spinner_dropdown_item) }
+        binding.spinnerAsrCompute.setSelection(computeKeys.indexOf(AppSettings.asrCompute).coerceAtLeast(0))
+        binding.spinnerAsrCompute.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                AppSettings.asrCompute = computeKeys[position]
+                refreshAsrSource()
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
         binding.btnDownloadAsr.setOnClickListener {
+            if (AppSettings.asrModel in listOf(AppSettings.ASR_MODEL_QWEN3,
+                    AppSettings.ASR_MODEL_NEMOTRON35)) {
+                val bundle = AsrBundleCatalog.forId(AppSettings.asrModel)
+                val custom = binding.etAsrUrl.text.toString()
+                AlertDialog.Builder(this)
+                    .setTitle("下载 ${bundle.title}？")
+                    .setMessage("本机需要 ${bundle.totalBytes / 1024 / 1024} MiB 模型空间；优先兼容的 ModelScope 文件，缺少时采用国内 HF Mirror。原始 ModelScope 权重不能代替 Android INT8 ONNX。下载后还需真机验证，当前没有官方发布方文件 SHA-256。")
+                    .setNegativeButton("取消", null)
+                    .setPositiveButton("下载到本机") { _, _ ->
+                        startAsrOperation(isDownload = true) {
+                            AsrBundleDownloader(this, bundle).download(AppSettings.asrSource, custom) { progress ->
+                                showAsrProgress(VoskArchiveInstaller.Progress(progress.bytes, progress.total,
+                                    progress.message))
+                            }
+                        }
+                    }.show()
+                return@setOnClickListener
+            }
             if (AppSettings.asrModel == AppSettings.ASR_MODEL_GIGAAM) {
                 val url = binding.etAsrUrl.text.toString()
                 val urls = try { GigaAmCatalog.urls(AppSettings.asrSource, url) }
@@ -164,14 +220,35 @@ class SettingsActivity : AppCompatActivity() {
         }
         binding.btnPauseAsr.setOnClickListener { operationJob?.cancel() }
         binding.btnImportAsr.setOnClickListener {
+            if (AppSettings.asrModel in listOf(AppSettings.ASR_MODEL_QWEN3,
+                    AppSettings.ASR_MODEL_NEMOTRON35)) {
+                toast("多文件 ONNX 请在模型管理页下载；该项不支持单文件 ZIP 导入")
+                return@setOnClickListener
+            }
             pendingImportAsr = AppSettings.asrModel
             importAsrArchive.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
         }
         binding.btnImportAsrFolder.setOnClickListener {
+            if (AppSettings.asrModel in listOf(AppSettings.ASR_MODEL_QWEN3,
+                    AppSettings.ASR_MODEL_NEMOTRON35)) {
+                toast("多文件 ONNX 暂不支持文件夹直接导入")
+                return@setOnClickListener
+            }
             pendingImportAsr = AppSettings.asrModel
             importAsrFolder.launch(null)
         }
         binding.btnRemoveAsr.setOnClickListener {
+            if (AppSettings.asrModel in listOf(AppSettings.ASR_MODEL_QWEN3,
+                    AppSettings.ASR_MODEL_NEMOTRON35)) {
+                val bundle = AsrBundleCatalog.forId(AppSettings.asrModel)
+                AlertDialog.Builder(this).setTitle("删除 ${bundle.title}？")
+                    .setMessage("只移除该 ASR 模型文件，不删除字幕历史或其他引擎。")
+                    .setNegativeButton("取消", null)
+                    .setPositiveButton("删除") { _, _ ->
+                        startAsrOperation { AsrBundleDownloader(this, bundle).remove() }
+                    }.show()
+                return@setOnClickListener
+            }
             if (AppSettings.asrModel == AppSettings.ASR_MODEL_GIGAAM) {
                 AlertDialog.Builder(this).setTitle("删除 GigaAM v2 模型？")
                     .setMessage("只删除本应用 GigaAM 的 ONNX 权重，不影响 Vosk 及翻译历史。")
@@ -261,6 +338,22 @@ class SettingsActivity : AppCompatActivity() {
     private fun refreshAsrSource() {
         val custom = AppSettings.asrSource == VoskModelCatalog.SOURCE_CUSTOM
         binding.etAsrUrl.visibility = if (custom) View.VISIBLE else View.GONE
+        val supports = AsrRoutingPolicy.supportsLanguage(AppSettings.asrModel, AppSettings.asrLanguage)
+        val requested = AsrComputePolicy.select(AppSettings.asrCompute)
+        binding.tvAsrHardwareHint.text = when {
+            !supports -> "当前 ASR 只能识别俄语。中文/英文/自动检测需要选择 Qwen3 或 Nemotron。"
+            requested.provider == "unsupported" -> requested.description + "；切回自动/CPU 才能启动。"
+            else -> requested.description + "；未安装或未验证 NPU/GPU 委托，不会虚报硬件加速。"
+        }
+        if (AppSettings.asrModel in listOf(AppSettings.ASR_MODEL_QWEN3,
+                AppSettings.ASR_MODEL_NEMOTRON35)) {
+            val bundle = AsrBundleCatalog.forId(AppSettings.asrModel)
+            binding.tvAsrHint.text =
+                "ModelScope 原始权重：${bundle.nativeModelScope}；Android INT8 ONNX：${bundle.convertedHfRepository}。" +
+                " 自动只下载与当前 Android 推理格式一致的文件，找不到兼容的魔搭镜像时改用国内 hf-mirror.com，不自动直连境外。" +
+                " 下载仅有文件长度检查，缺少可独立核实的发布方 SHA-256；需要真机推理验收。"
+            return
+        }
         val giga = AppSettings.asrModel == AppSettings.ASR_MODEL_GIGAAM
         val large = AppSettings.asrModel == AppSettings.ASR_MODEL_LARGE
         binding.tvAsrHint.text = if (giga)
@@ -270,6 +363,20 @@ class SettingsActivity : AppCompatActivity() {
         else "Small 已核验 HF Mirror 对应的 HF 文件及 SHA-256；自动模式优先国内 HF Mirror，失败切换官方来源。支持暂停、续传、ZIP CRC 与结构校验。"
     }
     private fun refreshAsrUi() {
+        if (AppSettings.asrModel in listOf(AppSettings.ASR_MODEL_QWEN3,
+                AppSettings.ASR_MODEL_NEMOTRON35)) {
+            val bundle = AsrBundleCatalog.forId(AppSettings.asrModel)
+            renderedAsr = bundle.id
+            binding.etAsrUrl.setText(customUrls.getString("vosk:" + renderedAsr, ""))
+            binding.btnImportAsr.text = "多文件 ONNX：仅支持下载"
+            binding.btnImportAsrFolder.visibility = View.GONE
+            binding.btnDownloadAsr.text = "下载 / 继续下载 " + bundle.title
+            refreshAsrSource()
+            binding.tvAsrStatus.text = if (AsrBundleDownloader(this, bundle).installed())
+                "ONNX 所有文件长度匹配，返回首页时还会检查真实推理运行时"
+            else "未安装 · ${bundle.totalBytes / 1024 / 1024} MiB，国内镜像优先下载"
+            return
+        }
         if (AppSettings.asrModel == AppSettings.ASR_MODEL_GIGAAM) {
             renderedAsr = GigaAmCatalog.MODEL_ID
             binding.etAsrUrl.setText(customUrls.getString("vosk:" + renderedAsr, ""))
@@ -391,7 +498,9 @@ class SettingsActivity : AppCompatActivity() {
         busy = value
         listOf(binding.btnDownloadModel, binding.btnImportModel, binding.btnRemoveModel,
             binding.spinnerModelSource, binding.etModelUrl, binding.rbGemma4, binding.rbLmt, hyMtButton,
-            binding.rbAsrSmall, binding.rbAsrLarge, binding.rbAsrGigaam, binding.spinnerAsrSource,
+            binding.rbAsrSmall, binding.rbAsrLarge, binding.rbAsrGigaam,
+            binding.rbAsrQwen, binding.rbAsrNemotron, binding.spinnerAsrLanguage,
+            binding.spinnerAsrCompute, binding.spinnerAsrSource,
             binding.etAsrUrl, binding.btnDownloadAsr, binding.btnImportAsr,
             binding.btnImportAsrFolder, binding.btnRemoveAsr
             ).forEach { it.isEnabled = !value }

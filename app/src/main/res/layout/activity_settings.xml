@@ -32,7 +32,30 @@
 <RadioButton android:id="@+id/rb_asr_small" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="50dp" android:layout_marginBottom="7dp" android:paddingHorizontal="12dp" android:text="Vosk Small  ·  轻量入门" android:textColor="#FFF0F0F0" android:textSize="14sp" android:buttonTint="#FF19C59A" android:background="@drawable/ui_option_row"/>
 <RadioButton android:id="@+id/rb_asr_large" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="50dp" android:layout_marginBottom="7dp" android:paddingHorizontal="12dp" android:text="Vosk Large  ·  高内存设备" android:textColor="#FFF0F0F0" android:textSize="14sp" android:buttonTint="#FF19C59A" android:background="@drawable/ui_option_row"/>
 <RadioButton android:id="@+id/rb_asr_gigaam" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="50dp" android:layout_marginBottom="7dp" android:paddingHorizontal="12dp" android:text="GigaAM v2  ·  236 MB INT8" android:textColor="#FFF0F0F0" android:textSize="14sp" android:buttonTint="#FF19C59A" android:background="@drawable/ui_option_row"/>
+<RadioButton android:id="@+id/rb_asr_qwen" android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:minHeight="50dp" android:layout_marginBottom="7dp" android:paddingHorizontal="12dp"
+    android:text="Qwen3-ASR 0.6B · INT8 多语言"
+    android:textColor="#FFF0F0F0" android:textSize="14sp" android:buttonTint="#FF19C59A"
+    android:background="@drawable/ui_option_row"/>
+<RadioButton android:id="@+id/rb_asr_nemotron" android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:minHeight="50dp" android:layout_marginBottom="7dp" android:paddingHorizontal="12dp"
+    android:text="Nemotron 3.5 Streaming 0.6B · INT8"
+    android:textColor="#FFF0F0F0" android:textSize="14sp" android:buttonTint="#FF19C59A"
+    android:background="@drawable/ui_option_row"/>
 </RadioGroup>
+<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="9dp" android:layout_marginBottom="7dp" android:text="语言选择（手动优先，不随语音偷偷切换）" android:textSize="12sp" android:textStyle="bold" android:textColor="#FFC7C9C8"/>
+<Spinner android:id="@+id/spinner_asr_language" android:layout_width="match_parent" android:layout_height="50dp"
+    android:paddingStart="12dp" android:paddingEnd="40dp"
+    android:background="@drawable/ui_spinner_field" android:spinnerMode="dropdown"/>
+<TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:layout_marginTop="9dp" android:layout_marginBottom="7dp"
+    android:text="ASR 计算设备" android:textSize="12sp" android:textStyle="bold" android:textColor="#FFC7C9C8"/>
+<Spinner android:id="@+id/spinner_asr_compute" android:layout_width="match_parent" android:layout_height="50dp"
+    android:paddingStart="12dp" android:paddingEnd="40dp"
+    android:background="@drawable/ui_spinner_field" android:spinnerMode="dropdown"/>
+<TextView android:id="@+id/tv_asr_hardware_hint" android:layout_width="match_parent"
+    android:layout_height="wrap_content" android:layout_marginTop="6dp" android:textSize="12sp"
+    android:lineSpacingExtra="3dp" android:textColor="#FFA8AAA9"/>
 <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="9dp" android:layout_marginBottom="7dp" android:text="模型下载来源" android:textSize="12sp" android:textStyle="bold" android:textColor="#FFC7C9C8"/>
 <Spinner android:id="@+id/spinner_asr_source" android:layout_width="match_parent" android:layout_height="50dp" android:paddingStart="12dp" android:paddingEnd="40dp" android:background="@drawable/ui_spinner_field" android:spinnerMode="dropdown"/>
 <TextView android:id="@+id/tv_asr_hint" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:textSize="12sp" android:lineSpacingExtra="3dp" android:textColor="#FFA8AAA9"/>
