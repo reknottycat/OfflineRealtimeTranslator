@@ -1,0 +1,12 @@
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape>
+            <solid android:color="#FF2C2D2F"/>
+            <corners android:radius="12dp"/>
+            <stroke android:width="1dp" android:color="#FF414244"/>
+        </shape>
+    </item>
+    <item android:drawable="@drawable/ui_chevron_down"
+        android:gravity="right|center_vertical"
+        android:right="14dp" android:width="18dp" android:height="18dp"/>
+</layer-list>
