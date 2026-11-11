@@ -1,4 +1,4 @@
-name: Gemma4 + LMT + HY-MT2 + Vosk + GigaAM Android APK
+name: GigaAM v4.1 Android home start regression and APK
 on:
   pull_request:
   workflow_dispatch:
@@ -43,14 +43,14 @@ jobs:
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs dist/*.apk > dist/apk-signature.txt
           python3 scripts/ci_lmt_report.py
           unzip -l dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk | grep 'lib/arm64-v8a/libsherpa-onnx-jni.so'
-          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk | grep "name='com.bohanli.ruzhtranslator.preview.gigaam'"
-          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk | grep "versionName='4.0-alpha-gigaam'"
-          mv dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-GigaAM-v4.0-preview.apk
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk | grep "name='com.bohanli.ruzhtranslator.preview.gigaam.startfix'"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk | grep "versionName='4.1-alpha-startfix'"
+          mv dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-GigaAM-v4.1-startfix.apk
           sha256sum dist/*.apk > dist/SHA256SUMS.txt
       - name: APK download
         uses: actions/upload-artifact@v4
         with:
-          name: OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-GigaAM-v4.0-preview
+          name: OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-GigaAM-v4.1-startfix
           path: dist/
           if-no-files-found: error
           retention-days: 30
