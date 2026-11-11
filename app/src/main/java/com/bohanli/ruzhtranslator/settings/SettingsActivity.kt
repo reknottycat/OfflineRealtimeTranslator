@@ -338,6 +338,22 @@ class SettingsActivity : AppCompatActivity() {
     private fun refreshAsrSource() {
         val custom = AppSettings.asrSource == VoskModelCatalog.SOURCE_CUSTOM
         binding.etAsrUrl.visibility = if (custom) View.VISIBLE else View.GONE
+        val supports = AsrRoutingPolicy.supportsLanguage(AppSettings.asrModel, AppSettings.asrLanguage)
+        val requested = AsrComputePolicy.select(AppSettings.asrCompute)
+        binding.tvAsrHardwareHint.text = when {
+            !supports -> "当前 ASR 只能识别俄语。中文/英文/自动检测需要选择 Qwen3 或 Nemotron。"
+            requested.provider == "unsupported" -> requested.description + "；切回自动/CPU 才能启动。"
+            else -> requested.description + "；未安装或未验证 NPU/GPU 委托，不会虚报硬件加速。"
+        }
+        if (AppSettings.asrModel in listOf(AppSettings.ASR_MODEL_QWEN3,
+                AppSettings.ASR_MODEL_NEMOTRON35)) {
+            val bundle = AsrBundleCatalog.forId(AppSettings.asrModel)
+            binding.tvAsrHint.text =
+                "ModelScope 原始权重：${bundle.nativeModelScope}；Android INT8 ONNX：${bundle.convertedHfRepository}。" +
+                " 自动只下载与当前 Android 推理格式一致的文件，找不到兼容的魔搭镜像时改用国内 hf-mirror.com，不自动直连境外。" +
+                " 下载仅有文件长度检查，缺少可独立核实的发布方 SHA-256；需要真机推理验收。"
+            return
+        }
         val giga = AppSettings.asrModel == AppSettings.ASR_MODEL_GIGAAM
         val large = AppSettings.asrModel == AppSettings.ASR_MODEL_LARGE
         binding.tvAsrHint.text = if (giga)
@@ -347,6 +363,20 @@ class SettingsActivity : AppCompatActivity() {
         else "Small 已核验 HF Mirror 对应的 HF 文件及 SHA-256；自动模式优先国内 HF Mirror，失败切换官方来源。支持暂停、续传、ZIP CRC 与结构校验。"
     }
     private fun refreshAsrUi() {
+        if (AppSettings.asrModel in listOf(AppSettings.ASR_MODEL_QWEN3,
+                AppSettings.ASR_MODEL_NEMOTRON35)) {
+            val bundle = AsrBundleCatalog.forId(AppSettings.asrModel)
+            renderedAsr = bundle.id
+            binding.etAsrUrl.setText(customUrls.getString("vosk:" + renderedAsr, ""))
+            binding.btnImportAsr.text = "多文件 ONNX：仅支持下载"
+            binding.btnImportAsrFolder.visibility = View.GONE
+            binding.btnDownloadAsr.text = "下载 / 继续下载 " + bundle.title
+            refreshAsrSource()
+            binding.tvAsrStatus.text = if (AsrBundleDownloader(this, bundle).installed())
+                "ONNX 所有文件长度匹配，返回首页时还会检查真实推理运行时"
+            else "未安装 · ${bundle.totalBytes / 1024 / 1024} MiB，国内镜像优先下载"
+            return
+        }
         if (AppSettings.asrModel == AppSettings.ASR_MODEL_GIGAAM) {
             renderedAsr = GigaAmCatalog.MODEL_ID
             binding.etAsrUrl.setText(customUrls.getString("vosk:" + renderedAsr, ""))
@@ -468,7 +498,9 @@ class SettingsActivity : AppCompatActivity() {
         busy = value
         listOf(binding.btnDownloadModel, binding.btnImportModel, binding.btnRemoveModel,
             binding.spinnerModelSource, binding.etModelUrl, binding.rbGemma4, binding.rbLmt, hyMtButton,
-            binding.rbAsrSmall, binding.rbAsrLarge, binding.rbAsrGigaam, binding.spinnerAsrSource,
+            binding.rbAsrSmall, binding.rbAsrLarge, binding.rbAsrGigaam,
+            binding.rbAsrQwen, binding.rbAsrNemotron, binding.spinnerAsrLanguage,
+            binding.spinnerAsrCompute, binding.spinnerAsrSource,
             binding.etAsrUrl, binding.btnDownloadAsr, binding.btnImportAsr,
             binding.btnImportAsrFolder, binding.btnRemoveAsr
             ).forEach { it.isEnabled = !value }
