@@ -6,7 +6,7 @@
         android:gravity="center_vertical" android:orientation="horizontal" android:paddingHorizontal="10dp">
         <ImageButton android:id="@+id/btn_back" android:layout_width="48dp" android:layout_height="48dp"
             android:background="?attr/selectableItemBackgroundBorderless" android:src="@drawable/ic_arrow_back"
-            android:tint="#FFF0F0F0" android:contentDescription="@string/back"/>
+            app:tint="#FFF0F0F0" android:contentDescription="@string/back"/>
         <TextView android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
             android:layout_marginStart="4dp" android:text="设置" android:textSize="18sp"
             android:textColor="#FFF7F7F7" android:textStyle="bold"/>
