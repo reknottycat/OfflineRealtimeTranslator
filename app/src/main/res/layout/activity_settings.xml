@@ -1,142 +1,83 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent" android:layout_height="match_parent"
-    android:orientation="vertical" android:background="#FF121212">
-    <LinearLayout android:layout_width="match_parent" android:layout_height="48dp"
-        android:orientation="horizontal" android:gravity="center_vertical"
-        android:background="#FF1E1E1E" android:paddingHorizontal="8dp">
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="#FF141414">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="64dp"
+        android:gravity="center_vertical" android:orientation="horizontal" android:paddingHorizontal="10dp">
         <ImageButton android:id="@+id/btn_back" android:layout_width="48dp" android:layout_height="48dp"
             android:background="?attr/selectableItemBackgroundBorderless" android:src="@drawable/ic_arrow_back"
-            android:scaleType="centerInside" android:contentDescription="@string/back" />
+            android:tint="#FFF0F0F0" android:contentDescription="@string/back"/>
+        <TextView android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+            android:layout_marginStart="4dp" android:text="设置" android:textSize="18sp"
+            android:textColor="#FFF7F7F7" android:textStyle="bold"/>
         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:text="@string/settings_title" android:textSize="16sp" android:textColor="#FFFFFFFF" />
+            android:text="LOCAL FIRST" android:textSize="11sp" android:textColor="#FF9BA79F"
+            android:layout_marginEnd="12dp"/>
     </LinearLayout>
-    <ScrollView android:layout_width="match_parent" android:layout_height="match_parent">
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingVertical="12dp">
+    <ScrollView android:layout_width="match_parent" android:layout_height="match_parent"
+        android:fillViewport="true" android:clipToPadding="false">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="vertical" android:paddingHorizontal="14dp" android:paddingTop="12dp"
+            android:paddingBottom="28dp">
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:paddingHorizontal="20dp" android:paddingBottom="12dp" android:text="离线翻译"
-                android:textSize="24sp" android:textStyle="bold" android:textColor="#FFF5F6F6" />
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginHorizontal="12dp" android:layout_marginBottom="12dp"
-                android:padding="16dp" android:orientation="vertical" android:background="@drawable/bg_settings_card">
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="翻译引擎" android:textColor="#FFF5F5F5" android:textStyle="bold" android:textSize="16sp" />
-                <RadioGroup android:id="@+id/radio_translation_engine" android:layout_width="match_parent" android:layout_height="wrap_content">
-                    <RadioButton android:id="@+id/rb_gemma4" android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:buttonTint="#FF10A37F" android:textColor="#FFECECEC" android:text="Gemma 4 E2B · LiteRT-LM" />
-                    <RadioButton android:id="@+id/rb_lmt" android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:buttonTint="#FF10A37F" android:textColor="#FFECECEC" android:text="NiuTrans LMT-60-1.7B · llama.cpp" />
-                </RadioGroup>
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp" android:text="计算设备" android:textStyle="bold" android:textColor="#FFF5F5F5" android:textSize="15sp" />
-                <RadioGroup android:id="@+id/radio_inference_backend" android:layout_width="match_parent" android:layout_height="wrap_content">
-                    <RadioButton android:id="@+id/rb_backend_auto" android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:text="自动 · 优先 GPU，失败回退 CPU" android:buttonTint="#FF10A37F" android:textColor="#FFECECEC" />
-                    <RadioButton android:id="@+id/rb_backend_gpu" android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:text="优先 GPU" android:buttonTint="#FF10A37F" android:textColor="#FFECECEC" />
-                    <RadioButton android:id="@+id/rb_backend_cpu" android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:text="仅 CPU" android:buttonTint="#FF10A37F" android:textColor="#FFECECEC" />
-                </RadioGroup>
-                <TextView android:id="@+id/tv_backend_note" android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="切换后返回主页面重新加载；不会同时加载两个翻译模型" android:textColor="#FF979AA3" android:textSize="12sp" />
-            </LinearLayout>
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginHorizontal="12dp" android:layout_marginBottom="12dp" android:padding="16dp"
-                android:orientation="vertical" android:background="@drawable/bg_settings_card">
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="模型管理 · 跟随所选引擎" android:textColor="#FFF5F5F5" android:textStyle="bold" android:textSize="16sp" />
-                <TextView android:id="@+id/tv_model_description" android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp" android:textColor="#FFA7ABB4" android:textSize="13sp" />
-                <Spinner android:id="@+id/spinner_model_source" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="10dp" />
-                <TextView android:id="@+id/tv_source_hint" android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:textColor="#FF9297A0" android:textSize="12sp" />
-                <EditText android:id="@+id/et_model_url" android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:inputType="textUri" android:singleLine="true" android:hint="所选模型的 HTTPS 文件直链（可选镜像）"
-                    android:textColor="#FFECECEC" android:textColorHint="#FF9297A0" android:visibility="gone" />
-                <TextView android:id="@+id/tv_model_status" android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp" android:textColor="#FFA7ABB4" android:textSize="13sp" />
-                <ProgressBar android:id="@+id/progress_model" style="?android:attr/progressBarStyleHorizontal"
-                    android:layout_width="match_parent" android:layout_height="6dp" android:layout_marginTop="8dp"
-                    android:max="100" android:progressTint="#FF10A37F" android:visibility="gone" />
-                <Button android:id="@+id/btn_download_model" android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp" android:text="下载 / 继续下载" />
-                <Button android:id="@+id/btn_pause_model" android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="暂停下载，保留断点" android:visibility="gone" />
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-                    <Button android:id="@+id/btn_import_model" android:layout_width="0dp" android:layout_weight="1"
-                        android:layout_height="wrap_content" android:text="从文件导入" />
-                    <Button android:id="@+id/btn_remove_model" android:layout_width="0dp" android:layout_weight="1"
-                        android:layout_height="wrap_content" android:layout_marginStart="8dp" android:text="删除所选模型" />
-                </LinearLayout>
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp"
-                    android:text="4 MiB 分块，默认 4 路并发；每块失败自动轮换来源，最多尝试 8 次。支持暂停续传，完成后校验整个模型。下载时保持此页面打开；退出或旋转屏幕后，返回并点击继续下载即可恢复。模型文件不包含在 APK 内。"
-                    android:textSize="12sp" android:textColor="#FF9297A0" />
-            </LinearLayout>
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="@string/asr_model_title" android:textSize="15sp" android:textStyle="bold" android:textColor="#FFFFFFFF" />
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="@string/asr_model_desc" android:textSize="13sp" android:textColor="#FF888888" />
-                <RadioGroup android:id="@+id/radio_asr_model" android:layout_width="match_parent" android:layout_height="wrap_content">
-                    <RadioButton android:id="@+id/rb_asr_small" android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:text="@string/asr_model_small" android:textColor="#FFFFFFFF" android:buttonTint="#FF10A37F" />
-                    <RadioButton android:id="@+id/rb_asr_large" android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:text="@string/asr_model_large" android:textColor="#FFFFFFFF" android:buttonTint="#FF10A37F" />
-                    <RadioButton android:id="@+id/rb_asr_gigaam" android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:text="GigaAM v2 Russian INT8 · 236 MB（第三方 sherpa-onnx）"
-                        android:textColor="#FFFFFFFF" android:buttonTint="#FF10A37F" />
-                </RadioGroup>
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp" android:text="下载来源" android:textColor="#FFF5F5F5"
-                    android:textStyle="bold" android:textSize="14sp" />
-                <Spinner android:id="@+id/spinner_asr_source" android:layout_width="match_parent"
-                    android:layout_height="48dp" />
-                <TextView android:id="@+id/tv_asr_hint" android:layout_width="match_parent"
-                    android:layout_height="wrap_content" android:textColor="#FF9297A0" android:textSize="12sp" />
-                <EditText android:id="@+id/et_asr_url" android:layout_width="match_parent"
-                    android:layout_height="wrap_content" android:inputType="textUri"
-                    android:singleLine="true" android:hint="Vosk ZIP 的自定义 HTTPS 下载直链"
-                    android:textColor="#FFECECEC" android:textColorHint="#FF9297A0"
-                    android:visibility="gone" />
-                <TextView android:id="@+id/tv_asr_status" android:layout_width="match_parent"
-                    android:layout_height="wrap_content" android:layout_marginTop="8dp"
-                    android:textColor="#FFA7ABB4" android:textSize="13sp" />
-                <ProgressBar android:id="@+id/progress_asr" style="?android:attr/progressBarStyleHorizontal"
-                    android:layout_width="match_parent" android:layout_height="6dp"
-                    android:layout_marginTop="8dp" android:max="100"
-                    android:progressTint="#FF10A37F" android:visibility="gone" />
-                <Button android:id="@+id/btn_download_asr" android:layout_width="match_parent"
-                    android:layout_height="wrap_content" android:layout_marginTop="10dp"
-                    android:text="下载 / 继续下载所选 Vosk 模型" />
-                <Button android:id="@+id/btn_pause_asr" android:layout_width="match_parent"
-                    android:layout_height="wrap_content" android:text="暂停 Vosk 下载，保留断点"
-                    android:visibility="gone" />
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:orientation="horizontal">
-                    <Button android:id="@+id/btn_import_asr" android:layout_width="0dp"
-                        android:layout_weight="1" android:layout_height="wrap_content"
-                        android:text="导入 Vosk ZIP" />
-                    <Button android:id="@+id/btn_remove_asr" android:layout_width="0dp"
-                        android:layout_weight="1" android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp" android:text="删除所选 Vosk" />
-                </LinearLayout>
-                <Button android:id="@+id/btn_import_asr_folder"
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:text="导入已解压 Vosk 文件夹（约 3.5 GB）" />
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp" android:layout_marginBottom="10dp"
-                    android:text="Large 官网 ZIP 下载约 1.84 GB；原仓库的 3.5 GB 是解压后文件夹大小。已解压的文件夹请用上方导入，不能当作 ZIP 文件导入。"
-                    android:textSize="12sp" android:textColor="#FF9297A0" />
-
-                <androidx.appcompat.widget.SwitchCompat android:id="@+id/switch_drift_retry"
-                    android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="10dp"
-                    android:text="@string/drift_retry_title" android:textColor="#FFFFFFFF" android:thumbTint="#FF10A37F" />
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="@string/drift_retry_desc" android:textColor="#FF888888" android:textSize="13sp" />
-                <TextView android:id="@+id/tv_version" android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp" android:textColor="#FF888888" android:textSize="13sp" />
-            </LinearLayout>
+                android:text="模型与偏好" android:textSize="25sp" android:textStyle="bold"
+                android:textColor="#FFF6F6F6"/>
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="7dp" android:layout_marginBottom="20dp"
+                android:text="先选语音识别，再选中文翻译。所有模型下载后均可离线运行。"
+                android:textSize="12sp" android:lineSpacingExtra="2dp" android:textColor="#FFA5A7A6"/>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="12dp" android:padding="18dp" android:orientation="vertical" android:background="@drawable/bg_settings_card"><TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="01  ·  语音识别" android:textColor="#FFF5F5F5" android:textStyle="bold" android:textSize="18sp"/>
+<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:layout_marginBottom="15dp" android:text="选择负责听懂俄语的本地模型。只安装识别模型也能使用实时字幕。" android:textColor="#FFAAAAAA" android:textSize="12sp"/>
+<RadioGroup android:id="@+id/radio_asr_model" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+<RadioButton android:id="@+id/rb_asr_small" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="50dp" android:layout_marginBottom="7dp" android:paddingHorizontal="12dp" android:text="Vosk Small  ·  轻量入门" android:textColor="#FFF0F0F0" android:textSize="14sp" android:buttonTint="#FF19C59A" android:background="@drawable/ui_option_row"/>
+<RadioButton android:id="@+id/rb_asr_large" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="50dp" android:layout_marginBottom="7dp" android:paddingHorizontal="12dp" android:text="Vosk Large  ·  高内存设备" android:textColor="#FFF0F0F0" android:textSize="14sp" android:buttonTint="#FF19C59A" android:background="@drawable/ui_option_row"/>
+<RadioButton android:id="@+id/rb_asr_gigaam" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="50dp" android:layout_marginBottom="7dp" android:paddingHorizontal="12dp" android:text="GigaAM v2  ·  236 MB INT8" android:textColor="#FFF0F0F0" android:textSize="14sp" android:buttonTint="#FF19C59A" android:background="@drawable/ui_option_row"/>
+</RadioGroup>
+<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="9dp" android:layout_marginBottom="7dp" android:text="模型下载来源" android:textSize="12sp" android:textStyle="bold" android:textColor="#FFC7C9C8"/>
+<Spinner android:id="@+id/spinner_asr_source" android:layout_width="match_parent" android:layout_height="50dp" android:paddingHorizontal="10dp" android:background="@drawable/ui_input_field" android:spinnerMode="dropdown"/>
+<TextView android:id="@+id/tv_asr_hint" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:textSize="12sp" android:lineSpacingExtra="3dp" android:textColor="#FFA8AAA9"/>
+<EditText android:id="@+id/et_asr_url" android:layout_width="match_parent" android:layout_height="50dp" android:layout_marginTop="8dp" android:paddingHorizontal="12dp" android:singleLine="true" android:inputType="textUri" android:hint="HTTPS 模型地址（可选）" android:textSize="13sp" android:textColor="#FFF1F1F1" android:textColorHint="#FF999999" android:background="@drawable/ui_input_field" android:visibility="gone"/>
+<TextView android:id="@+id/tv_asr_status" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:textSize="12sp" android:lineSpacingExtra="3dp" android:textColor="#FFA8AAA9"/>
+<ProgressBar android:id="@+id/progress_asr" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="6dp" android:layout_marginTop="9dp" android:max="100" android:progressTint="#FF19C59A" android:visibility="gone"/>
+<com.google.android.material.button.MaterialButton android:id="@+id/btn_download_asr" android:layout_width="match_parent" android:layout_height="50dp" android:layout_marginTop="8dp" android:text="下载或继续下载语音模型" android:textAllCaps="false" android:textSize="14sp" android:textStyle="bold" android:textColor="#FF09281F" app:cornerRadius="13dp" app:backgroundTint="#FF19C59A"/>
+<com.google.android.material.button.MaterialButton android:id="@+id/btn_pause_asr" android:layout_width="match_parent" android:layout_height="50dp" android:layout_marginTop="8dp" android:text="暂停语音模型下载" android:textAllCaps="false" android:textSize="14sp" android:textStyle="normal" android:textColor="#FFF1F1F1" app:cornerRadius="13dp" app:backgroundTint="#FF363738"/>
+<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:orientation="horizontal"><com.google.android.material.button.MaterialButton android:id="@+id/btn_import_asr" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:layout_marginHorizontal="4dp" android:text="导入模型文件" android:textSize="13sp" android:textAllCaps="false" android:textColor="#FFF0F0F0" app:cornerRadius="13dp" app:backgroundTint="#FF333435"/><com.google.android.material.button.MaterialButton android:id="@+id/btn_remove_asr" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:layout_marginHorizontal="4dp" android:text="删除所选模型" android:textSize="13sp" android:textAllCaps="false" android:textColor="#FFF0F0F0" app:cornerRadius="13dp" app:backgroundTint="#FF333435"/></LinearLayout>
+<com.google.android.material.button.MaterialButton android:id="@+id/btn_import_asr_folder" android:layout_width="match_parent" android:layout_height="50dp" android:layout_marginTop="8dp" android:text="导入已解压 Vosk 文件夹" android:textAllCaps="false" android:textSize="14sp" android:textStyle="normal" android:textColor="#FFF1F1F1" app:cornerRadius="13dp" app:backgroundTint="#FF363738"/>
+<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:textSize="11sp" android:textColor="#FF8E9290" android:text="Vosk Large 下载 ZIP 约 1.84 GB，解压后约 3.5–3.7 GB。请选择相应的 ZIP 或文件夹导入方式。"></TextView>
+</LinearLayout>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="12dp" android:padding="18dp" android:orientation="vertical" android:background="@drawable/bg_settings_card"><TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="02  ·  翻译引擎" android:textColor="#FFF5F5F5" android:textStyle="bold" android:textSize="18sp"/>
+<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:layout_marginBottom="15dp" android:text="将识别到的俄语实时转为中文；可选择不同模型，随时切换。" android:textColor="#FFAAAAAA" android:textSize="12sp"/>
+<RadioGroup android:id="@+id/radio_translation_engine" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+<RadioButton android:id="@+id/rb_gemma4" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="50dp" android:layout_marginBottom="7dp" android:paddingHorizontal="12dp" android:text="Gemma 4 E2B  ·  LiteRT-LM" android:textColor="#FFF0F0F0" android:textSize="14sp" android:buttonTint="#FF19C59A" android:background="@drawable/ui_option_row"/>
+<RadioButton android:id="@+id/rb_lmt" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="50dp" android:layout_marginBottom="7dp" android:paddingHorizontal="12dp" android:text="NiuTrans LMT  ·  llama.cpp" android:textColor="#FFF0F0F0" android:textSize="14sp" android:buttonTint="#FF19C59A" android:background="@drawable/ui_option_row"/>
+</RadioGroup>
+<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="9dp" android:layout_marginBottom="7dp" android:text="计算后端" android:textSize="12sp" android:textStyle="bold" android:textColor="#FFC7C9C8"/>
+<RadioGroup android:id="@+id/radio_inference_backend" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+<RadioButton android:id="@+id/rb_backend_auto" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="50dp" android:layout_marginBottom="7dp" android:paddingHorizontal="12dp" android:text="自动：优先 GPU，失败回退 CPU" android:textColor="#FFF0F0F0" android:textSize="14sp" android:buttonTint="#FF19C59A" android:background="@drawable/ui_option_row"/>
+<RadioButton android:id="@+id/rb_backend_gpu" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="50dp" android:layout_marginBottom="7dp" android:paddingHorizontal="12dp" android:text="优先 GPU" android:textColor="#FFF0F0F0" android:textSize="14sp" android:buttonTint="#FF19C59A" android:background="@drawable/ui_option_row"/>
+<RadioButton android:id="@+id/rb_backend_cpu" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="50dp" android:layout_marginBottom="7dp" android:paddingHorizontal="12dp" android:text="仅 CPU" android:textColor="#FFF0F0F0" android:textSize="14sp" android:buttonTint="#FF19C59A" android:background="@drawable/ui_option_row"/>
+</RadioGroup>
+<TextView android:id="@+id/tv_backend_note" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:textSize="12sp" android:lineSpacingExtra="3dp" android:textColor="#FFA8AAA9"/>
+</LinearLayout>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="12dp" android:padding="18dp" android:orientation="vertical" android:background="@drawable/bg_settings_card"><TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="03  ·  翻译模型下载" android:textColor="#FFF5F5F5" android:textStyle="bold" android:textSize="18sp"/>
+<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:layout_marginBottom="15dp" android:text="下载与当前所选翻译引擎对应的权重。模型只在设备本地使用。" android:textColor="#FFAAAAAA" android:textSize="12sp"/>
+<TextView android:id="@+id/tv_model_description" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="0dp" android:textSize="12sp" android:lineSpacingExtra="3dp" android:textColor="#FFA8AAA9"/>
+<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="9dp" android:layout_marginBottom="7dp" android:text="模型下载来源" android:textSize="12sp" android:textStyle="bold" android:textColor="#FFC7C9C8"/>
+<Spinner android:id="@+id/spinner_model_source" android:layout_width="match_parent" android:layout_height="50dp" android:paddingHorizontal="10dp" android:background="@drawable/ui_input_field" android:spinnerMode="dropdown"/>
+<TextView android:id="@+id/tv_source_hint" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:textSize="12sp" android:lineSpacingExtra="3dp" android:textColor="#FFA8AAA9"/>
+<EditText android:id="@+id/et_model_url" android:layout_width="match_parent" android:layout_height="50dp" android:layout_marginTop="8dp" android:paddingHorizontal="12dp" android:singleLine="true" android:inputType="textUri" android:hint="HTTPS 模型直链（可选）" android:textSize="13sp" android:textColor="#FFF1F1F1" android:textColorHint="#FF999999" android:background="@drawable/ui_input_field" android:visibility="gone"/>
+<TextView android:id="@+id/tv_model_status" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:textSize="12sp" android:lineSpacingExtra="3dp" android:textColor="#FFA8AAA9"/>
+<ProgressBar android:id="@+id/progress_model" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="6dp" android:layout_marginTop="9dp" android:max="100" android:progressTint="#FF19C59A" android:visibility="gone"/>
+<com.google.android.material.button.MaterialButton android:id="@+id/btn_download_model" android:layout_width="match_parent" android:layout_height="50dp" android:layout_marginTop="8dp" android:text="下载或继续下载翻译模型" android:textAllCaps="false" android:textSize="14sp" android:textStyle="bold" android:textColor="#FF09281F" app:cornerRadius="13dp" app:backgroundTint="#FF19C59A"/>
+<com.google.android.material.button.MaterialButton android:id="@+id/btn_pause_model" android:layout_width="match_parent" android:layout_height="50dp" android:layout_marginTop="8dp" android:text="暂停下载，保留断点" android:textAllCaps="false" android:textSize="14sp" android:textStyle="normal" android:textColor="#FFF1F1F1" app:cornerRadius="13dp" app:backgroundTint="#FF363738"/>
+<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:orientation="horizontal"><com.google.android.material.button.MaterialButton android:id="@+id/btn_import_model" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:layout_marginHorizontal="4dp" android:text="从文件导入" android:textSize="13sp" android:textAllCaps="false" android:textColor="#FFF0F0F0" app:cornerRadius="13dp" app:backgroundTint="#FF333435"/><com.google.android.material.button.MaterialButton android:id="@+id/btn_remove_model" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:layout_marginHorizontal="4dp" android:text="删除所选模型" android:textSize="13sp" android:textAllCaps="false" android:textColor="#FFF0F0F0" app:cornerRadius="13dp" app:backgroundTint="#FF333435"/></LinearLayout>
+<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:textSize="11sp" android:lineSpacingExtra="2dp" android:textColor="#FF909392" android:text="支持分块下载、失败换源与断点续传；完整文件校验成功后才会安装。下载时保持当前页面打开。"></TextView>
+</LinearLayout>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="12dp" android:padding="18dp" android:orientation="vertical" android:background="@drawable/bg_settings_card"><TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="04  ·  识别与翻译偏好" android:textColor="#FFF5F5F5" android:textStyle="bold" android:textSize="18sp"/>
+<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:layout_marginBottom="15dp" android:text="让实时字幕更稳定，保持翻译结果符合目标语言。" android:textColor="#FFAAAAAA" android:textSize="12sp"/>
+<androidx.appcompat.widget.SwitchCompat android:id="@+id/switch_drift_retry" android:layout_width="match_parent" android:layout_height="52dp" android:text="@string/drift_retry_title" android:textColor="#FFF1F1F1" android:textSize="14sp" android:thumbTint="#FF19C59A"/>
+<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/drift_retry_desc" android:textSize="12sp" android:textColor="#FFA5A7A6"></TextView>
+<TextView android:id="@+id/tv_version" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:textSize="12sp" android:textColor="#FF898B8A"/>
+</LinearLayout>
         </LinearLayout>
     </ScrollView>
 </LinearLayout>
