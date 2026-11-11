@@ -88,12 +88,18 @@ class SettingsActivity : AppCompatActivity() {
             setTextColor(binding.rbLmt.textColors)
             buttonTintList = binding.rbLmt.buttonTintList
             textSize = binding.rbLmt.textSize / resources.displayMetrics.scaledDensity
-            minHeight = (48 * resources.displayMetrics.density).toInt()
+            minHeight = (50 * resources.displayMetrics.density).toInt()
+            setPadding((12 * resources.displayMetrics.density).toInt(), 0,
+                (12 * resources.displayMetrics.density).toInt(), 0)
+            setBackgroundResource(R.drawable.ui_option_row)
         }
         binding.radioTranslationEngine.addView(hyMtButton,
-            RadioGroup.LayoutParams(RadioGroup.LayoutParams.MATCH_PARENT, RadioGroup.LayoutParams.WRAP_CONTENT))
+            RadioGroup.LayoutParams(RadioGroup.LayoutParams.MATCH_PARENT,
+                RadioGroup.LayoutParams.WRAP_CONTENT).apply {
+                bottomMargin = (7 * resources.displayMetrics.density).toInt()
+            })
         binding.btnBack.setOnClickListener { finish() }
-        binding.tvVersion.text = "v4.0-alpha · Vosk / GigaAM v2 俄语识别 · 三翻译引擎"
+        binding.tvVersion.text = "v4.2-alpha · 界面重构 · GigaAM / Vosk / 三翻译引擎"
         binding.radioAsrModel.check(when (AppSettings.asrModel) {
             AppSettings.ASR_MODEL_GIGAAM -> binding.rbAsrGigaam.id
             AppSettings.ASR_MODEL_LARGE -> binding.rbAsrLarge.id

@@ -1,285 +1,329 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:fitsSystemWindows="true"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#FF101214"
+    android:background="#FF141414"
     tools:context=".MainActivity">
 
-    <!-- Restrained, conversation-first toolbar. No changes to recognition or queue IDs. -->
+    <!-- Quiet, conversation-first header. All legacy view IDs are preserved. -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="58dp"
-        android:gravity="center_vertical"
+        android:layout_height="68dp"
         android:orientation="horizontal"
-        android:paddingHorizontal="18dp"
-        android:background="#FF151719">
+        android:gravity="center_vertical"
+        android:paddingStart="18dp"
+        android:paddingEnd="12dp">
+
+        <TextView
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:gravity="center"
+            android:text="RU"
+            android:textStyle="bold"
+            android:textSize="12sp"
+            android:textColor="#FFF4F4F4"
+            android:background="@drawable/ui_brand_mark" />
+
         <LinearLayout
             android:layout_width="0dp"
-            android:layout_weight="1"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="12dp"
             android:orientation="vertical">
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="离线同声传译" android:textSize="19sp"
-                android:textStyle="bold" android:textColor="#FFF7F7F8"/>
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="语音识别与翻译均在设备本地运行"
-                android:textSize="11sp" android:textColor="#FF9299A1"/>
-        </LinearLayout>
-        <TextView
-            android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:paddingHorizontal="10dp" android:paddingVertical="6dp"
-            android:text="RU  →  ZH" android:textSize="12sp"
-            android:textColor="#FF98D8C5" android:background="@drawable/bg_settings_card"/>
-    </LinearLayout>
-
-    <!-- Status bar -->
-    <TextView
-        android:id="@+id/tv_status"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:paddingHorizontal="12dp"
-        android:paddingVertical="6dp"
-        android:textSize="12sp"
-        android:textColor="#FFAAAAAA"
-        android:background="#FF151719"
-        android:text="@string/status_loading"
-        android:fontFamily="sans"
-        android:maxLines="2" />
-
-    <TextView
-        android:id="@+id/tv_autosave_status"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="#FF151719"
-        android:paddingHorizontal="14dp"
-        android:paddingBottom="6dp"
-        android:text="自动保存已开启 · 历史可查看"
-        android:textSize="11sp"
-        android:textColor="#FF82BAAA" />
-
-    <!-- Russian ASR area (top half) -->
-    <FrameLayout
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1">
-
-        <ScrollView
-            android:id="@+id/scroll_view_russian"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:fillViewport="true">
             <TextView
-                android:id="@+id/tv_russian_history"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:paddingHorizontal="18dp"
-                android:paddingTop="52dp"
-                android:paddingBottom="32dp"
-                android:textSize="17sp"
-                android:textColor="#FFF0F1F2"
-                android:background="@drawable/bg_chat_user"
-                android:gravity="top"
-                android:hint="@string/hint_russian"
-                android:textColorHint="#FF9BA0A7"
-                tools:text="Привет мир" />
-        </ScrollView>
+                android:text="同声传译"
+                android:textColor="#FFF7F7F7"
+                android:textStyle="bold"
+                android:textSize="19sp" />
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="离线运行  ·  RU → ZH"
+                android:textColor="#FF9E9E9E"
+                android:textSize="11sp" />
+        </LinearLayout>
 
+        <ImageButton
+            android:id="@+id/btn_history"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_history_clock"
+            app:tint="#FFD7D7D7"
+            android:contentDescription="@string/history_title" />
+        <ImageButton
+            android:id="@+id/btn_settings"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_settings_gear"
+            app:tint="#FFD7D7D7"
+            android:contentDescription="@string/settings_title" />
+    </LinearLayout>
+
+    <!-- Actionable runtime status, kept outside the scrolling subtitle cards. -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="14dp"
+        android:layout_marginBottom="9dp"
+        android:orientation="vertical"
+        android:paddingHorizontal="14dp"
+        android:paddingVertical="9dp"
+        android:background="@drawable/ui_status_surface">
+        <TextView
+            android:id="@+id/tv_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/status_loading"
+            android:maxLines="4"
+            android:textSize="12sp"
+            android:lineSpacingExtra="2dp"
+            android:textColor="#FFDDDDDD" />
+        <TextView
+            android:id="@+id/tv_autosave_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="5dp"
+            android:text="字幕自动保存到历史记录"
+            android:textSize="11sp"
+            android:textColor="#FF9DBCB0"
+            android:maxLines="2" />
+    </LinearLayout>
+
+    <!-- Source transcript card; text is live and independently scrollable. -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginHorizontal="12dp"
+        android:layout_marginBottom="8dp"
+        android:orientation="vertical"
+        android:background="@drawable/ui_conversation_card"
+        android:clipToOutline="true">
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="40dp"
-            android:layout_gravity="top"
-            android:orientation="horizontal"
+            android:layout_height="48dp"
             android:gravity="center_vertical"
-            android:background="#FF181B1F"
-            android:paddingHorizontal="14dp">
+            android:orientation="horizontal"
+            android:paddingStart="16dp"
+            android:paddingEnd="10dp">
             <TextView
                 android:layout_width="0dp"
-                android:layout_weight="1"
                 android:layout_height="wrap_content"
-                android:text="俄语原文 · 实时识别"
-                android:textSize="12sp"
-                android:textColor="#FFE4E7EB"
-                android:textStyle="bold" />
+                android:layout_weight="1"
+                android:text="俄语原文"
+                android:textColor="#FFF1F1F1"
+                android:textStyle="bold"
+                android:textSize="14sp" />
             <TextView
                 android:id="@+id/tv_follow_ru"
                 android:layout_width="wrap_content"
-                android:layout_height="40dp"
+                android:layout_height="48dp"
                 android:gravity="center"
-                android:paddingHorizontal="8dp"
+                android:paddingHorizontal="11dp"
                 android:text="● 自动跟随"
+                android:textColor="#FFB9D7CC"
                 android:textSize="11sp"
-                android:textColor="#FF93CDBB"
+                android:background="@drawable/ui_follow_chip"
                 android:clickable="true"
                 android:focusable="true"
                 android:contentDescription="切换俄文字幕自动跟随" />
         </LinearLayout>
-
-        <!-- Scroll-to-bottom button (Russian) -->
-        <ImageButton
-            android:id="@+id/btn_scroll_bottom_ru"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:layout_gravity="bottom|end"
-            android:layout_marginEnd="8dp"
-            android:layout_marginBottom="8dp"
-            android:background="@drawable/bg_circle_button"
-            android:src="@drawable/ic_arrow_down"
-            android:scaleType="centerInside"
-            android:contentDescription="@string/scroll_to_bottom"
-            android:alpha="0.6"
-            android:visibility="gone" />
-    </FrameLayout>
-
-    <!-- Divider area: favorites + history + start/stop button -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingHorizontal="10dp"
-        android:paddingVertical="10dp"
-        android:background="#FF181B1F">
-
-        <!-- Favorites star icon -->
-        <ImageButton
-            android:id="@+id/btn_favorites"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_star_outline"
-            android:scaleType="centerInside"
-            android:contentDescription="@string/favorites_title"
-            android:alpha="0.7" />
-
-        <!-- History clock icon -->
-        <ImageButton
-            android:id="@+id/btn_history"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_marginStart="4dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_history_clock"
-            android:scaleType="centerInside"
-            android:contentDescription="@string/history_title"
-            android:alpha="0.7" />
-
-        <!-- Settings gear icon -->
-        <ImageButton
-            android:id="@+id/btn_settings"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_marginStart="4dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_settings_gear"
-            android:scaleType="centerInside"
-            android:contentDescription="@string/settings_title"
-            android:alpha="0.7" />
-
-        <!-- Spacer -->
-        <View
-            android:layout_width="0dp"
-            android:layout_height="1dp"
-            android:layout_weight="1" />
-
-        <!-- Start/Stop circular button -->
-        <ImageButton
-            android:id="@+id/btn_start_stop"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:layout_marginEnd="6dp"
-            android:background="@drawable/bg_circle_button_start"
-            android:src="@drawable/ic_play_arrow"
-            android:scaleType="centerInside"
-            android:contentDescription="@string/btn_start"
-            android:alpha="0.75" />
-
-        <!-- Pause/Resume circular button (visible only when listening) -->
-        <ImageButton
-            android:id="@+id/btn_pause_resume"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:background="@drawable/bg_circle_button_pause"
-            android:src="@drawable/ic_pause"
-            android:scaleType="centerInside"
-            android:contentDescription="@string/btn_pause"
-            android:alpha="0.75"
-            android:visibility="gone" />
+        <View android:layout_width="match_parent" android:layout_height="1dp"
+            android:background="#FF343434" />
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+            <ScrollView
+                android:id="@+id/scroll_view_russian"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:fillViewport="true"
+                android:scrollbars="none"
+                android:overScrollMode="ifContentScrolls">
+                <TextView
+                    android:id="@+id/tv_russian_history"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="96dp"
+                    android:paddingHorizontal="17dp"
+                    android:paddingTop="16dp"
+                    android:paddingBottom="24dp"
+                    android:gravity="top"
+                    android:textSize="16sp"
+                    android:lineSpacingExtra="6dp"
+                    android:textColor="#FFF2F2F2"
+                    android:hint="说话后，俄语字幕会实时显示在这里"
+                    android:textColorHint="#FF858585"
+                    tools:text="Добрый день! Мы обсудим условия поставки и сроки оплаты." />
+            </ScrollView>
+            <ImageButton
+                android:id="@+id/btn_scroll_bottom_ru"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_gravity="bottom|end"
+                android:layout_margin="10dp"
+                android:background="@drawable/ui_float_button"
+                android:src="@drawable/ic_arrow_down"
+                app:tint="#FFF4F4F4"
+                android:contentDescription="@string/scroll_to_bottom"
+                android:visibility="gone" />
+        </FrameLayout>
     </LinearLayout>
 
-    <!-- Chinese translation area (bottom half) -->
-    <FrameLayout
+    <!-- Translation card, slightly emphasized for readability. -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1">
-
-        <ScrollView
-            android:id="@+id/scroll_view_chinese"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:fillViewport="true">
-
-            <TextView
-                android:id="@+id/tv_chinese_history"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:paddingHorizontal="18dp"
-                android:paddingTop="52dp"
-                android:paddingBottom="32dp"
-                android:textSize="17sp"
-                android:textColor="#FFF0F6F3"
-                android:background="@drawable/bg_chat_assistant"
-                android:gravity="top"
-                android:hint="@string/hint_chinese"
-                android:textColorHint="#FF93A49E"
-                tools:text="你好世界" />
-        </ScrollView>
-
+        android:layout_weight="1.1"
+        android:layout_marginHorizontal="12dp"
+        android:orientation="vertical"
+        android:background="@drawable/ui_conversation_card"
+        android:clipToOutline="true">
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="40dp"
-            android:layout_gravity="top"
-            android:orientation="horizontal"
+            android:layout_height="48dp"
             android:gravity="center_vertical"
-            android:background="#FF181B1F"
-            android:paddingHorizontal="14dp">
+            android:orientation="horizontal"
+            android:paddingStart="16dp"
+            android:paddingEnd="10dp">
             <TextView
                 android:layout_width="0dp"
-                android:layout_weight="1"
                 android:layout_height="wrap_content"
-                android:text="中文译文 · 流式翻译"
-                android:textSize="12sp"
-                android:textColor="#FFE4E7EB"
-                android:textStyle="bold" />
+                android:layout_weight="1"
+                android:text="中文译文"
+                android:textColor="#FFF1F1F1"
+                android:textStyle="bold"
+                android:textSize="14sp" />
             <TextView
                 android:id="@+id/tv_follow_zh"
                 android:layout_width="wrap_content"
-                android:layout_height="40dp"
+                android:layout_height="48dp"
                 android:gravity="center"
-                android:paddingHorizontal="8dp"
+                android:paddingHorizontal="11dp"
                 android:text="● 自动跟随"
+                android:textColor="#FFB9D7CC"
                 android:textSize="11sp"
-                android:textColor="#FF93CDBB"
+                android:background="@drawable/ui_follow_chip"
                 android:clickable="true"
                 android:focusable="true"
                 android:contentDescription="切换中文译文自动跟随" />
         </LinearLayout>
+        <View android:layout_width="match_parent" android:layout_height="1dp"
+            android:background="#FF343434" />
+        <FrameLayout android:layout_width="match_parent"
+            android:layout_height="0dp" android:layout_weight="1">
+            <ScrollView
+                android:id="@+id/scroll_view_chinese"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:fillViewport="true"
+                android:scrollbars="none"
+                android:overScrollMode="ifContentScrolls">
+                <TextView
+                    android:id="@+id/tv_chinese_history"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="96dp"
+                    android:paddingHorizontal="17dp"
+                    android:paddingTop="16dp"
+                    android:paddingBottom="24dp"
+                    android:gravity="top"
+                    android:textSize="17sp"
+                    android:lineSpacingExtra="7dp"
+                    android:textColor="#FFF2F4F2"
+                    android:hint="翻译内容将在这里逐句生成"
+                    android:textColorHint="#FF858585"
+                    tools:text="您好！我们将讨论交货条件和付款期限。" />
+            </ScrollView>
+            <ImageButton
+                android:id="@+id/btn_scroll_bottom_zh"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_gravity="bottom|end"
+                android:layout_margin="10dp"
+                android:background="@drawable/ui_float_button"
+                android:src="@drawable/ic_arrow_down"
+                app:tint="#FFF4F4F4"
+                android:contentDescription="@string/scroll_to_bottom"
+                android:visibility="gone" />
+        </FrameLayout>
+    </LinearLayout>
 
-        <!-- Scroll-to-bottom button (Chinese) -->
+    <!-- ChatGPT-inspired composer dock: one obvious primary action. -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="12dp"
+        android:layout_marginTop="10dp"
+        android:layout_marginBottom="12dp"
+        android:padding="11dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:background="@drawable/ui_composer_dock">
+
         <ImageButton
-            android:id="@+id/btn_scroll_bottom_zh"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:layout_gravity="bottom|end"
-            android:layout_marginEnd="8dp"
-            android:layout_marginBottom="8dp"
-            android:background="@drawable/bg_circle_button"
-            android:src="@drawable/ic_arrow_down"
-            android:scaleType="centerInside"
-            android:contentDescription="@string/scroll_to_bottom"
-            android:alpha="0.6"
+            android:id="@+id/btn_start_stop"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:layout_marginEnd="13dp"
+            android:background="@drawable/bg_circle_button_start"
+            android:src="@drawable/ic_play_arrow"
+            app:tint="#FF10201B"
+            android:contentDescription="@string/btn_start" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+            <TextView
+                android:id="@+id/tv_record_action"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="开始聆听"
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:textColor="#FFF7F7F7" />
+            <TextView
+                android:id="@+id/tv_record_caption"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="5dp"
+                android:text="语音在本机处理 · 字幕自动保存"
+                android:maxLines="2"
+                android:textSize="11sp"
+                android:textColor="#FF989A9D" />
+        </LinearLayout>
+
+        <ImageButton
+            android:id="@+id/btn_pause_resume"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:layout_marginStart="4dp"
+            android:background="@drawable/bg_circle_button_pause"
+            android:src="@drawable/ic_pause"
+            app:tint="#FFF5F5F5"
+            android:contentDescription="@string/btn_pause"
             android:visibility="gone" />
-    </FrameLayout>
+        <ImageButton
+            android:id="@+id/btn_favorites"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="4dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_star_outline"
+            app:tint="#FFC4C4C4"
+            android:contentDescription="@string/favorites_title" />
+    </LinearLayout>
 
 </LinearLayout>

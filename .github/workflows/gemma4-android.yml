@@ -1,4 +1,4 @@
-name: GigaAM v4.1 Android home start regression and APK
+name: ChatGPT-inspired v4.2 Android frontend and APK
 on:
   pull_request:
   workflow_dispatch:
@@ -30,6 +30,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Get and verify official sherpa-onnx v2.0.1 Android AAR
         run: python3 scripts/setup_sherpa_aar.py
+      - name: Chat-style UI binding and accessibility contract
+        run: python3 scripts/verify_ui_contract.py
       - name: Unit tests, lint and ARM64 APK
         run: |
           chmod +x gradlew
@@ -43,14 +45,14 @@ jobs:
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs dist/*.apk > dist/apk-signature.txt
           python3 scripts/ci_lmt_report.py
           unzip -l dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk | grep 'lib/arm64-v8a/libsherpa-onnx-jni.so'
-          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk | grep "name='com.bohanli.ruzhtranslator.preview.gigaam.startfix'"
-          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk | grep "versionName='4.1-alpha-startfix'"
-          mv dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-GigaAM-v4.1-startfix.apk
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk | grep "name='com.bohanli.ruzhtranslator.preview.gigaam.chatstyle'"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk | grep "versionName='4.2-alpha-chatstyle'"
+          mv dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-GigaAM-v4.2-chatstyle.apk
           sha256sum dist/*.apk > dist/SHA256SUMS.txt
       - name: APK download
         uses: actions/upload-artifact@v4
         with:
-          name: OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-GigaAM-v4.1-startfix
+          name: OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-GigaAM-v4.2-chatstyle
           path: dist/
           if-no-files-found: error
           retention-days: 30
