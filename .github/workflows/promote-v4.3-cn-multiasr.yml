@@ -1,0 +1,46 @@
+name: Publish CI-verified v4.3 multilingual ASR APK to direct GitHub
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/promote-v4.3-cn-multiasr.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  promote:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve exact successful CI APK and validate identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/v43"
+          gh run download 43080560536 -R "$GITHUB_REPOSITORY" \
+            -n OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-GigaAM-v4.3-cn-multiasr \
+            -D "$RUNNER_TEMP/v43"
+          cd "$RUNNER_TEMP/v43"
+          NAME="OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-GigaAM-v4.3-cn-multiasr.apk"
+          test -s "$NAME"
+          sed 's#  dist/#  #' SHA256SUMS.txt | sha256sum -c -
+          printf '%s  %s\n' '79971467c77aba43c5df15b2d73fd3c094ed753eb996b230d977f84c0780ce30' "$NAME" | sha256sum -c -
+          test "$(stat -c%s "$NAME")" = "90682431"
+          python3 -c 'import json; v=json.load(open("validation.json")); assert v["unit_tests"]["tests"] >= 89 and not v["unit_tests"]["failures"] and not v["unit_tests"]["errors"] and v["lint_errors"] == 0; print("CI validation:", v["unit_tests"])'
+          unzip -t "$NAME" >/dev/null
+      - name: Publish the verified binary to the permanent apk-downloads branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin apk-downloads:refs/remotes/origin/apk-downloads
+          git checkout -B apk-downloads refs/remotes/origin/apk-downloads
+          NAME="OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-GigaAM-v4.3-cn-multiasr.apk"
+          cp "$RUNNER_TEMP/v43/$NAME" "$NAME"
+          sha256sum "$NAME" > CN-MultiASR-v4.3-SHA256SUMS.txt
+          git add "$NAME" CN-MultiASR-v4.3-SHA256SUMS.txt
+          git commit -m "release: promote 89-test-passing v4.3 CN-first multilingual ASR APK"
+          git push origin HEAD:refs/heads/apk-downloads
