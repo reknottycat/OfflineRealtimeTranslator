@@ -1,4 +1,4 @@
-name: ChatGPT-inspired v4.2 Android frontend and APK
+name: v4.3 multilingual ASR Android APK
 on:
   pull_request:
   workflow_dispatch:
@@ -9,8 +9,24 @@ concurrency:
   cancel-in-progress: true
 jobs:
   android:
+    name: Android ${{ matrix.backend }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - backend: cpu
+            qnn_enabled: '0'
+            enable_qnn: 'false'
+            application_suffix: .preview.multilingual
+          - backend: qnn
+            qnn_enabled: '1'
+            enable_qnn: 'true'
+            application_suffix: .preview.multilingual.qnn
+    env:
+      APK_PATH: dist/OfflineRealtimeTranslator-v4.3-alpha-multilingual-asr-${{ matrix.backend }}-arm64.apk
+      QNN_ENABLED: ${{ matrix.qnn_enabled }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -20,7 +36,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
       - name: Android SDK + pinned NDK + CMake
         run: |
           SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
@@ -28,31 +44,58 @@ jobs:
           test -x "$SDKMGR"
           "$SDKMGR" --install "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358" "cmake;3.22.1"
       - uses: gradle/actions/setup-gradle@v4
-      - name: Get and verify official sherpa-onnx v2.0.1 Android AAR
+      - name: Download and verify native Android dependencies
         run: python3 scripts/setup_sherpa_aar.py
       - name: Chat-style UI binding and accessibility contract
         run: python3 scripts/verify_ui_contract.py
       - name: Unit tests, lint and ARM64 APK
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon --max-workers=4 --stacktrace :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+          ./gradlew --no-daemon --max-workers=4 --stacktrace -PenableQnn=${{ matrix.enable_qnn }} \
+            :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
       - name: Verify and package APK evidence
         env:
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          APPLICATION_ID: com.bohanli.ruzhtranslator${{ matrix.application_suffix }}
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs dist/*.apk > dist/apk-signature.txt
+          cp app/build/outputs/apk/debug/app-debug.apk "$APK_PATH"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$APK_PATH" > dist/apk-signature.txt
           python3 scripts/ci_lmt_report.py
-          unzip -l dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk | grep 'lib/arm64-v8a/libsherpa-onnx-jni.so'
-          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk | grep "name='com.bohanli.ruzhtranslator.preview.gigaam.chatstyle'"
-          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk | grep "versionName='4.2-alpha-chatstyle'"
-          mv dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-debug.apk dist/OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-GigaAM-v4.2-chatstyle.apk
-          sha256sum dist/*.apk > dist/SHA256SUMS.txt
+          unzip -Z1 "$APK_PATH" > dist/apk-contents.txt
+          grep -Fxq 'lib/arm64-v8a/libsherpa-onnx-jni.so' dist/apk-contents.txt
+          mkdir -p "$RUNNER_TEMP/apk-abi"
+          for library in libonnxruntime.so libonnxruntime4j_jni.so libsherpa-onnx-jni.so; do
+            unzip -p "$APK_PATH" "lib/arm64-v8a/$library" > "$RUNNER_TEMP/apk-abi/$library"
+            readelf --dyn-syms --wide "$RUNNER_TEMP/apk-abi/$library" > "$RUNNER_TEMP/apk-abi/$library.symbols"
+          done
+          if [[ "$QNN_ENABLED" == '1' ]]; then
+            ort_version=1.28.1
+            for library in libQnnHtp.so libQnnSystem.so libQnnHtpV79Stub.so libQnnHtpV79Skel.so libQnnHtpV81Stub.so libQnnHtpV81Skel.so; do
+              grep -Fxq "lib/arm64-v8a/$library" dist/apk-contents.txt
+            done
+            grep -Fq "OrtGetApiBase@VERS_$ort_version" "$RUNNER_TEMP/apk-abi/libsherpa-onnx-jni.so.symbols"
+          else
+            ort_version=1.17.3
+            if grep -Fq 'lib/arm64-v8a/libQnnHtp.so' dist/apk-contents.txt; then
+              echo 'Unexpected Qualcomm runtime in the CPU APK' >&2
+              exit 1
+            fi
+            readelf --dynamic "$RUNNER_TEMP/apk-abi/libsherpa-onnx-jni.so" > "$RUNNER_TEMP/apk-abi/sherpa.dynamic"
+            if grep -Fq 'Shared library: [libonnxruntime.so]' "$RUNNER_TEMP/apk-abi/sherpa.dynamic"; then
+              echo 'CPU Sherpa must link its own ONNX Runtime statically' >&2
+              exit 1
+            fi
+          fi
+          grep -Fq "OrtGetApiBase@@VERS_$ort_version" "$RUNNER_TEMP/apk-abi/libonnxruntime.so.symbols"
+          grep -Fq "OrtGetApiBase@VERS_$ort_version" "$RUNNER_TEMP/apk-abi/libonnxruntime4j_jni.so.symbols"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK_PATH" > dist/apk-badging.txt
+          grep -F "name='$APPLICATION_ID' versionCode='43' versionName='4.3-alpha-multilingual-asr'" dist/apk-badging.txt
+          (cd dist && sha256sum ./*.apk) > dist/SHA256SUMS.txt
       - name: APK download
         uses: actions/upload-artifact@v4
         with:
-          name: OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-GigaAM-v4.2-chatstyle
+          name: OfflineRealtimeTranslator-v4.3-alpha-multilingual-asr-${{ matrix.backend }}-arm64
           path: dist/
           if-no-files-found: error
           retention-days: 30
@@ -60,7 +103,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: android-test-reports
+          name: android-${{ matrix.backend }}-test-reports
           path: |
             app/build/reports/
             app/build/test-results/

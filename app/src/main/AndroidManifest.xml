@@ -21,6 +21,11 @@
         <!-- OpenCL GPU acceleration: request vendor library access (API 31+) -->
         <uses-native-library android:name="libOpenCL.so" android:required="false" />
         <uses-native-library android:name="libvndksupport.so" android:required="false" />
+        <uses-native-library android:name="libcdsprpc.so" android:required="false" />
+        <service
+            android:name=".asr.NemotronQnnService"
+            android:process=":nemotron_qnn"
+            android:exported="false" />
         <activity
             android:name=".MainActivity"
             android:exported="true">
