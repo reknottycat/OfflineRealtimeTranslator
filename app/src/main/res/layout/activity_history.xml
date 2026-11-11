@@ -18,10 +18,10 @@
 
         <ImageButton
             android:id="@+id/btn_back"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_arrow_back"
+            android:src="@drawable/ic_arrow_back" android:tint="#FFD8D8D8"
             android:scaleType="centerInside"
             android:contentDescription="@string/back" />
 
@@ -50,21 +50,21 @@
 
         <Spinner
             android:id="@+id/spinner_time_range"
-            android:layout_width="wrap_content"
-            android:layout_height="34dp"
+            android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="46dp"
             android:backgroundTint="#FFAAAAAA" />
 
         <Spinner
             android:id="@+id/spinner_sort"
-            android:layout_width="wrap_content"
-            android:layout_height="34dp"
+            android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="46dp"
             android:layout_marginStart="2dp"
             android:backgroundTint="#FFAAAAAA" />
 
         <Spinner
             android:id="@+id/spinner_cleanup"
-            android:layout_width="wrap_content"
-            android:layout_height="34dp"
+            android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="46dp"
             android:layout_marginStart="2dp"
             android:backgroundTint="#FFAAAAAA" />
 
@@ -75,11 +75,11 @@
 
         <ImageButton
             android:id="@+id/btn_multi_select"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_marginStart="4dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_select_all"
+            android:src="@drawable/ic_select_all" android:tint="#FFD8D8D8"
             android:scaleType="centerInside"
             android:contentDescription="@string/multi_select" />
     </LinearLayout>
@@ -89,7 +89,7 @@
     <LinearLayout
         android:id="@+id/bar_actions"
         android:layout_width="match_parent"
-        android:layout_height="50dp"
+        android:layout_height="54dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:paddingHorizontal="8dp"
@@ -99,10 +99,10 @@
         <!-- Delete (left) -->
         <ImageButton
             android:id="@+id/btn_action_delete"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_delete"
+            android:src="@drawable/ic_delete" android:tint="#FFD8D8D8"
             android:scaleType="centerInside"
             android:contentDescription="@string/delete_selected" />
 
@@ -115,32 +115,32 @@
         <!-- Export -->
         <ImageButton
             android:id="@+id/btn_action_export"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_export"
+            android:src="@drawable/ic_export" android:tint="#FFD8D8D8"
             android:scaleType="centerInside"
             android:contentDescription="@string/export" />
 
         <!-- Copy -->
         <ImageButton
             android:id="@+id/btn_action_copy"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_marginStart="4dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_copy"
+            android:src="@drawable/ic_copy" android:tint="#FFD8D8D8"
             android:scaleType="centerInside"
             android:contentDescription="@string/copy" />
 
         <!-- Favorite -->
         <ImageButton
             android:id="@+id/btn_action_favorite"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_marginStart="4dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_star_outline"
+            android:src="@drawable/ic_star_outline" android:tint="#FFD8D8D8"
             android:scaleType="centerInside"
             android:contentDescription="@string/favorites_title" />
 
