@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:fitsSystemWindows="true"
     android:layout_width="match_parent"
@@ -55,7 +56,7 @@
             android:layout_height="48dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_history_clock"
-            android:tint="#FFD7D7D7"
+            app:tint="#FFD7D7D7"
             android:contentDescription="@string/history_title" />
         <ImageButton
             android:id="@+id/btn_settings"
@@ -63,7 +64,7 @@
             android:layout_height="48dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_settings_gear"
-            android:tint="#FFD7D7D7"
+            app:tint="#FFD7D7D7"
             android:contentDescription="@string/settings_title" />
     </LinearLayout>
 
@@ -173,7 +174,7 @@
                 android:layout_margin="10dp"
                 android:background="@drawable/ui_float_button"
                 android:src="@drawable/ic_arrow_down"
-                android:tint="#FFF4F4F4"
+                app:tint="#FFF4F4F4"
                 android:contentDescription="@string/scroll_to_bottom"
                 android:visibility="gone" />
         </FrameLayout>
@@ -252,7 +253,7 @@
                 android:layout_margin="10dp"
                 android:background="@drawable/ui_float_button"
                 android:src="@drawable/ic_arrow_down"
-                android:tint="#FFF4F4F4"
+                app:tint="#FFF4F4F4"
                 android:contentDescription="@string/scroll_to_bottom"
                 android:visibility="gone" />
         </FrameLayout>
@@ -277,7 +278,7 @@
             android:layout_marginEnd="13dp"
             android:background="@drawable/bg_circle_button_start"
             android:src="@drawable/ic_play_arrow"
-            android:tint="#FF10201B"
+            app:tint="#FF10201B"
             android:contentDescription="@string/btn_start" />
 
         <LinearLayout
@@ -311,7 +312,7 @@
             android:layout_marginStart="4dp"
             android:background="@drawable/bg_circle_button_pause"
             android:src="@drawable/ic_pause"
-            android:tint="#FFF5F5F5"
+            app:tint="#FFF5F5F5"
             android:contentDescription="@string/btn_pause"
             android:visibility="gone" />
         <ImageButton
@@ -321,7 +322,7 @@
             android:layout_marginStart="4dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_star_outline"
-            android:tint="#FFC4C4C4"
+            app:tint="#FFC4C4C4"
             android:contentDescription="@string/favorites_title" />
     </LinearLayout>
 
