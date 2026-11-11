@@ -64,7 +64,7 @@ class NemotronStreamingAsrManager(
                 tokens = File(modelDir, "tokens.txt").absolutePath,
                 numThreads = 2,
                 provider = "cpu",
-                modelType = "nemo_transducer"
+                modelType = "transducer"
             ),
             enableEndpoint = true
         )
