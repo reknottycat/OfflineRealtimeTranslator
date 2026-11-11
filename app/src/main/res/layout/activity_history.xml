@@ -4,17 +4,17 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#FF121212"
+    android:background="#FF141414"
     tools:context=".history.HistoryActivity">
 
     <!-- Top bar: back + title -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="44dp"
+        android:layout_height="64dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:background="#FF1E1E1E"
-        android:paddingHorizontal="8dp">
+        android:background="#FF202121"
+        android:paddingHorizontal="12dp">
 
         <ImageButton
             android:id="@+id/btn_back"
@@ -31,19 +31,22 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="@string/history_title"
-            android:textSize="16sp"
-            android:textColor="#FFFFFFFF"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="#FFF3F3F3"
             android:layout_marginStart="8dp" />
     </LinearLayout>
 
     <!-- Filter row: 全部 | 排序 | 清理 | 多选 -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="40dp"
+        android:layout_height="56dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:paddingHorizontal="8dp"
-        android:background="#FF1A1A1A">
+        android:paddingHorizontal="14dp"
+        android:layout_marginHorizontal="12dp"
+        android:layout_marginBottom="10dp"
+        android:background="@drawable/ui_conversation_card">
 
         <Spinner
             android:id="@+id/spinner_time_range"
@@ -86,11 +89,11 @@
     <LinearLayout
         android:id="@+id/bar_actions"
         android:layout_width="match_parent"
-        android:layout_height="40dp"
+        android:layout_height="50dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:paddingHorizontal="8dp"
-        android:background="#FF222222"
+        android:background="#FF303131"
         android:visibility="gone">
 
         <!-- Delete (left) -->
@@ -170,7 +173,8 @@
         android:layout_height="0dp"
         android:layout_weight="1"
         android:clipToPadding="false"
-        android:paddingBottom="8dp" />
+        android:paddingBottom="14dp"
+        android:paddingTop="2dp" />
 
     <!-- Empty state -->
     <TextView
@@ -181,15 +185,15 @@
         android:gravity="center"
         android:text="@string/no_history"
         android:textSize="15sp"
-        android:textColor="#FF666666"
+        android:textColor="#FF999999"
         android:visibility="gone" />
 
     <!-- Bottom tab bar: Favorites | History -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="51dp"
+        android:layout_height="62dp"
         android:orientation="horizontal"
-        android:background="#FF1E1E1E">
+        android:background="#FF202121">
 
         <TextView
             android:id="@+id/tab_favorites"
@@ -199,13 +203,13 @@
             android:gravity="center"
             android:text="@string/favorites_title"
             android:textSize="14sp"
-            android:textColor="#FF888888"
+            android:textColor="#FFB5B5B5"
             android:background="?attr/selectableItemBackground" />
 
         <View
             android:layout_width="1dp"
             android:layout_height="match_parent"
-            android:background="#FF333333" />
+            android:background="#FF404141" />
 
         <TextView
             android:id="@+id/tab_history"
