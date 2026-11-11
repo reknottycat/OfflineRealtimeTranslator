@@ -140,6 +140,9 @@ class MainActivity : AppCompatActivity() {
         binding.btnStartStop.setOnClickListener {
             if (isListening || isPaused) stopListening() else requestMic()
         }
+        // The bottom composer text is part of the same primary start/stop action.
+        binding.tvRecordAction.setOnClickListener { binding.btnStartStop.performClick() }
+        binding.tvRecordCaption.setOnClickListener { binding.btnStartStop.performClick() }
         binding.btnPauseResume.setOnClickListener { if (isPaused) resumeFromPause() else pauseListening() }
         binding.btnHistory.setOnClickListener {
             startActivity(Intent(this, HistoryActivity::class.java).putExtra("tab", 0))
