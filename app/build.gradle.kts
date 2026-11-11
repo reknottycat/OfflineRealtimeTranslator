@@ -46,6 +46,8 @@ android {
     }
     packaging {
         jniLibs {
+            // Dependency AARs can contain additional ABIs even in this ARM64-only build.
+            excludes += setOf("**/armeabi-v7a/*.so", "**/x86/*.so", "**/x86_64/*.so")
             pickFirsts += "**/libc++_shared.so"
             if (enableQnn) {
                 // FastRPC locates the DSP skeleton via a real nativeLibraryDir path.
