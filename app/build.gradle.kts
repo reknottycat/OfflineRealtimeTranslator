@@ -3,6 +3,8 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+val enableQnn = providers.gradleProperty("enableQnn").map(String::toBooleanStrict).orElse(false).get()
+
 android {
     namespace = "com.bohanli.ruzhtranslator"
     compileSdk = 36
@@ -11,8 +13,9 @@ android {
         applicationId = "com.bohanli.ruzhtranslator"
         minSdk = 29
         targetSdk = 36
-        versionCode = 42
-        versionName = "4.2-alpha-chatstyle"
+        versionCode = 43
+        versionName = "4.3-alpha-multilingual-asr"
+        buildConfigField("boolean", "QNN_ENABLED", enableQnn.toString())
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += "arm64-v8a" }
         externalNativeBuild {
@@ -21,11 +24,9 @@ android {
     }
     signingConfigs { getByName("debug") }
     buildTypes {
-        // CI generates a fresh Android debug key each run. Old v3.7/v3.8 packages
-        // therefore cannot safely be upgraded in place. Use a distinct preview
-        // application ID so the user can preserve the original app and its history.
+        // These debug previews can be installed beside v4.2 and each other.
         debug {
-            applicationIdSuffix = ".preview.gigaam.chatstyle"
+            applicationIdSuffix = if (enableQnn) ".preview.multilingual.qnn" else ".preview.multilingual"
         }
         release {
             isMinifyEnabled = false
@@ -45,12 +46,18 @@ android {
     }
     packaging {
         jniLibs {
-            // sherpa-onnx AAR may bundle an ONNX Runtime shared library already
-            // provided by recasepunc's Java ONNX Runtime; the APK must carry one.
-            pickFirsts += listOf("**/libonnxruntime.so", "**/libc++_shared.so")
+            pickFirsts += "**/libc++_shared.so"
+            if (enableQnn) {
+                // FastRPC locates the DSP skeleton via a real nativeLibraryDir path.
+                useLegacyPackaging = true
+                keepDebugSymbols += "**/libQnnHtpV*Skel.so"
+            }
         }
     }
-    buildFeatures { viewBinding = true }
+    buildFeatures {
+        buildConfig = true
+        viewBinding = true
+    }
     androidResources { noCompress += listOf("bin", "onnx", "model", "bpe", "litertlm", "gguf") }
 }
 
@@ -62,9 +69,18 @@ dependencies {
     implementation(libs.androidx.constraintlayout)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.vosk.android)
-    // Official sherpa-onnx Android AAR, pinned SHA-256; downloaded before Gradle by scripts/setup_sherpa_aar.py
-    implementation(files("libs/sherpa-onnx-2.0.1.aar"))
-    implementation(libs.onnxruntime.android)
+    implementation("org.apache.commons:commons-compress:1.28.0")
+    // Download and verify the selected native dependencies with scripts/setup_sherpa_aar.py.
+    if (enableQnn) {
+        implementation(files("libs/sherpa-onnx-2.0.1-1-qnn.aar"))
+        // The QNN Sherpa binary requires this newer ORT ABI. Its Java API also serves recasepunc.
+        implementation(files("libs/onnxruntime-1.28.1-xdcobra.aar"))
+        implementation(files("libs/qnn-runtime-2.40.0.aar"))
+    } else {
+        // Sherpa carries its own statically linked ORT, so recasepunc keeps its matching Java/ELF pair.
+        implementation(files("libs/sherpa-onnx-static-link-onnxruntime-2.0.1.aar"))
+        implementation(libs.onnxruntime.android)
+    }
     // Gemma remains LiteRT-LM; the GGUF bridge owns distinct LMT/HY-MT2 profiles.
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.16.1")
     val roomVersion = "2.7.1"

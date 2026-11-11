@@ -34,7 +34,8 @@ class TranslationQueue(
     }
 
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-    private var channel = Channel<Pair<Int, String>>(Channel.UNLIMITED)
+    private data class Segment(val generation: Int, val text: String, val alreadyTargetLanguage: Boolean)
+    private val channel = Channel<Segment>(Channel.UNLIMITED)
 
     // Generation counter: incremented on clear(), results from old generations are discarded
     private val generation = AtomicInteger(0)
@@ -51,7 +52,7 @@ class TranslationQueue(
 
     private fun startConsumer() {
         scope.launch {
-            for ((gen, text) in channel) {
+            for ((gen, text, alreadyTargetLanguage) in channel) {
                 // Skip items from old generations (queue was cleared)
                 if (gen != generation.get()) continue
 
@@ -64,6 +65,19 @@ class TranslationQueue(
 
                 // Re-check generation after potential pause
                 if (gen != generation.get()) continue
+                if (alreadyTargetLanguage) {
+                    withContext(Dispatchers.Main) {
+                        if (gen == generation.get()) {
+                            try {
+                                onResult(text)
+                            } finally {
+                                outstanding.updateAndGet { (it - 1).coerceAtLeast(0) }
+                                onBusyChanged(false)
+                            }
+                        }
+                    }
+                    continue
+                }
 
                 val currentGen = gen
                 withContext(Dispatchers.Main) {
@@ -135,11 +149,11 @@ class TranslationQueue(
         }
     }
 
-    /** Submit a Russian segment for translation. Non-blocking. */
-    fun submit(text: String) {
+    /** Submit an ASR segment. Already-Chinese segments preserve queue order without invoking translation. */
+    fun submit(text: String, alreadyTargetLanguage: Boolean = false) {
         if (text.isBlank()) return
         outstanding.incrementAndGet()
-        val offered = channel.trySend(generation.get() to text)
+        val offered = channel.trySend(Segment(generation.get(), text, alreadyTargetLanguage))
         if (offered.isFailure) {
             outstanding.updateAndGet { (it - 1).coerceAtLeast(0) }
             Log.e(TAG, "Channel send failed (should not happen with UNLIMITED capacity)")

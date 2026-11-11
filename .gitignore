@@ -11,6 +11,7 @@ local.properties
 
 # App build output
 app/build/
+/app/libs/*.aar
 
 # Model files (too large for git)
 *.onnx

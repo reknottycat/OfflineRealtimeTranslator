@@ -18,6 +18,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.bohanli.ruzhtranslator.asr.RecasepuncProcessor
+import com.bohanli.ruzhtranslator.asr.MultilingualAsrCatalog
+import com.bohanli.ruzhtranslator.asr.MultilingualAsrManager
+import com.bohanli.ruzhtranslator.asr.NemotronQnnModelStore
+import com.bohanli.ruzhtranslator.asr.QnnNemotronAsrEngine
 import com.bohanli.ruzhtranslator.asr.VoskAsrManager
 import com.bohanli.ruzhtranslator.asr.AsrEngine
 import com.bohanli.ruzhtranslator.asr.GigaAmAsrManager
@@ -45,6 +49,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 
 class MainActivity : AppCompatActivity() {
@@ -71,6 +76,16 @@ class MainActivity : AppCompatActivity() {
     @Volatile private var isPaused = false
     private var lastPartial = ""
     private var currentAsrModel = AppSettings.ASR_MODEL_SMALL
+    private var currentAsrLanguage = "auto"
+    @Volatile private var currentAsrBackend: String? = null
+    private val multilingualAsr get() = MultilingualAsrCatalog.forId(currentAsrModel)
+    private val needsFinalDrain get() = multilingualAsr != null || currentAsrModel == AppSettings.ASR_MODEL_GIGAAM
+    private val sourceLabel get() = when (if (multilingualAsr == null) "ru" else currentAsrLanguage) {
+        "ru" -> "俄语"
+        "zh" -> "中文"
+        "en" -> "英语"
+        else -> "自动语种"
+    }
     private var currentTranslationEngine = AppSettings.ENGINE_GEMMA4
     private var currentInferenceBackend = AppSettings.BACKEND_AUTO
     private var currentModelGeneration = 0
@@ -97,6 +112,7 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         currentAsrModel = AppSettings.asrModel
+        currentAsrLanguage = AppSettings.asrLanguage
         currentTranslationEngine = AppSettings.translationEngine
         currentInferenceBackend = AppSettings.inferenceBackend
         currentModelGeneration = AppSettings.modelGeneration
@@ -134,6 +150,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupUi() {
+        if (multilingualAsr != null) {
+            binding.tvAsrBrand.text = "ASR"
+            binding.tvAsrDirection.text = "离线运行 · ${sourceLabel}输入"
+            binding.tvAsrTranscriptTitle.text = "语音原文"
+            binding.tvRussianHistory.hint = "说话后，识别结果会实时显示在这里"
+        }
         // Keep Start interactive even on a clean install without model weights.
         binding.btnStartStop.isEnabled = true
         binding.btnStartStop.alpha = 0.9f
@@ -151,9 +173,9 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, HistoryActivity::class.java).putExtra("tab", 1))
         }
         binding.btnSettings.setOnClickListener {
-            if (currentAsrModel == AppSettings.ASR_MODEL_GIGAAM &&
+            if (needsFinalDrain &&
                 voskAsr?.hasPendingResults() == true) {
-                updateStatus(AppStatus.Loading("正在完成最后一段俄语识别，请稍后进入设置"))
+                updateStatus(AppStatus.Loading("正在完成最后一段识别，请稍后进入设置"))
                 return@setOnClickListener
             }
             // No active recorder, queue or translator may keep running while model files are managed.
@@ -254,6 +276,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadModels() {
         val spec = ModelCatalog.forEngine(currentTranslationEngine)
+        val entry = multilingualAsr
+        val canTranslate = entry == null || currentAsrLanguage == "ru" ||
+            currentTranslationEngine == AppSettings.ENGINE_HYMT2
         val translator = GemmaTranslator(currentTranslationEngine, currentInferenceBackend)
         gemmaTranslator = translator
         modelsLoading = mainScope.launch {
@@ -269,6 +294,12 @@ class MainActivity : AppCompatActivity() {
                 }
                 val initialized = coroutineScope {
                     val asr = async(Dispatchers.IO) {
+                        if (entry != null) {
+                            val instance = loadMultilingualAsr(entry)
+                            startupAsr = instance
+                            progress()
+                            return@async instance
+                        }
                         val instance: AsrEngine = if (currentAsrModel == AppSettings.ASR_MODEL_GIGAAM) {
                             val dir = ModelManager.getModelDir(this@MainActivity, GigaAmCatalog.MODEL_ID)
                                 ?: error("GigaAM v2 俄语模型未安装，请在设置中点选第三套 ASR 模型并下载")
@@ -292,6 +323,10 @@ class MainActivity : AppCompatActivity() {
                         instance
                     }
                     val punctuation = async(Dispatchers.IO) {
+                        if (entry != null) {
+                            progress()
+                            return@async null
+                        }
                         val dir = ModelManager.getModelDir(this@MainActivity, MODEL_RECASEPUNC)
                         val instance = RecasepuncProcessor(dir)
                         startupPunctuation = instance
@@ -299,6 +334,10 @@ class MainActivity : AppCompatActivity() {
                         instance
                     }
                     val translation = async(Dispatchers.IO) {
+                        if (!canTranslate) {
+                            progress()
+                            return@async false
+                        }
                         val dir = ModelManager.getModelDir(this@MainActivity, spec.directory)
                         if (dir == null) {
                             Log.i(TAG, "Translation model not installed: ${spec.title}; ASR-only mode")
@@ -339,7 +378,8 @@ class MainActivity : AppCompatActivity() {
                     translator.destroy()
                     gemmaTranslator = null
                     binding.tvAutosaveStatus.text =
-                        "仅俄语转写 · 已识别字幕仍会自动保存，安装翻译模型后可开启中文翻译"
+                        if (!canTranslate) "仅转写 · 多语输入可选择 HY-MT2 翻译"
+                        else "仅转写 · 字幕自动保存，安装翻译模型后可开启中文翻译"
                 }
                 complete = true
                 lastModelLoadError = null
@@ -369,12 +409,65 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private suspend fun loadMultilingualAsr(entry: MultilingualAsrCatalog.Entry): AsrEngine {
+        val error: (String) -> Unit = { message ->
+            runOnUiThread {
+                if (!isDestroyed && !settingsOpened) {
+                    if (isListening || isPaused) stopListening()
+                    val failedQnn = voskAsr as? QnnNemotronAsrEngine
+                    if (failedQnn != null && !failedQnn.isUsable) {
+                        failedQnn.release()
+                        voskAsr = null
+                        currentAsrBackend = null
+                        lastModelLoadError = "$message · 可在设置切换 CPU"
+                    }
+                    updateStatus(AppStatus.Error(message))
+                }
+            }
+        }
+        val qnnStore = if (currentAsrModel == MultilingualAsrCatalog.NEMOTRON &&
+            AppSettings.preferAsrQnn && QnnNemotronAsrEngine.isRuntimePresent(this))
+            NemotronQnnModelStore.forCurrentDevice(this) else null
+        var qnnFailure: Exception? = null
+        if (qnnStore?.installed() == true) {
+            val qnn = QnnNemotronAsrEngine(this, qnnStore.directory, currentAsrLanguage,
+                ::onVoskPartial, ::onAsrFinal, error, ::refreshStoppedState)
+            try {
+                qnn.initialize()
+                currentAsrBackend = "骁龙 NPU"
+                return qnn
+            } catch (failure: Exception) {
+                qnn.release()
+                if (failure is CancellationException) throw failure
+                qnnFailure = failure
+                Log.w(TAG, "Nemotron QNN initialization failed", failure)
+            }
+        }
+        check(entry.files.all { ModelDownloader(this, it).installed() }) {
+            if (qnnFailure != null) "骁龙 NPU 初始化失败，请在设置关闭 NPU 并下载 CPU 模型"
+            else "${entry.title} 尚未安装，请在设置中下载模型"
+        }
+        val directory = File(filesDir, "models/${entry.directory}")
+        val cpu = MultilingualAsrManager(this, directory, currentAsrModel, currentAsrLanguage,
+            ::onVoskPartial, ::onAsrFinal, error, ::refreshStoppedState)
+        try {
+            cpu.initialize()
+            currentAsrBackend = "CPU"
+            return cpu
+        } catch (failure: Exception) {
+            cpu.release()
+            throw failure
+        }
+    }
+
     private fun onVoskPartial(partial: String) {
         if (settingsOpened || isDestroyed || !isListening || isPaused) return
         lastPartial = partial
         updateRussianDisplay(partial)
     }
-    private fun onVoskFinal(rawText: String) {
+    private fun onVoskFinal(rawText: String) = onAsrFinal(rawText, "ru")
+
+    private fun onAsrFinal(rawText: String, language: String) {
         if (settingsOpened || isDestroyed) return
         lastPartial = ""
         if (rawText.isBlank()) { updateRussianDisplay(); return }
@@ -390,7 +483,15 @@ class MainActivity : AppCompatActivity() {
                 if (epoch == sessionEpoch && !settingsOpened && processed.isNotBlank()) {
                     appendRussianSegment(processed) // Auto-save now, not when Activity is destroyed.
                     updateRussianDisplay()
-                    queue?.submit(processed)
+                    if (queue != null) {
+                        if (language == "zh" || language.startsWith("zh-")) {
+                            // Chinese is already in the target language. Use the same queue
+                            // to preserve ordering relative to segments still translating.
+                            queue.submit(processed, alreadyTargetLanguage = true)
+                        } else {
+                            queue.submit(processed)
+                        }
+                    }
                 }
             } finally {
                 pendingAsrResults = (pendingAsrResults - 1).coerceAtLeast(0)
@@ -400,22 +501,21 @@ class MainActivity : AppCompatActivity() {
     }
     private fun requestMic() {
         if (modelsLoading?.isActive == true) {
-            updateStatus(AppStatus.Loading("正在初始化俄语识别模型，请完成后再点击开始"))
+            updateStatus(AppStatus.Loading("正在初始化语音识别模型，请完成后再点击开始"))
             return
         }
         if (HomeStartPolicy.mode(voskAsr != null,
                 gemmaTranslator?.isAvailable() == true) == HomeStartPolicy.Mode.NEED_ASR) {
-            val name = when (currentAsrModel) {
+            val name = multilingualAsr?.title ?: when (currentAsrModel) {
                 AppSettings.ASR_MODEL_GIGAAM -> "GigaAM v2 Russian INT8（236 MB ONNX）"
                 AppSettings.ASR_MODEL_LARGE -> "Vosk Large 0.42"
                 else -> "Vosk Small 0.22"
             }
             AlertDialog.Builder(this)
-                .setTitle("请安装或修复俄语识别模型")
+                .setTitle("请安装或修复语音识别模型")
                 .setMessage("当前选择：" + name + "\n\n" +
                     (lastModelLoadError ?: "所选 ASR 模型尚未就绪") + "\n\n" +
-                    "v4.0 独立测试包不会继承旧版模型。" +
-                    "可以在设置下载或导入；只测试俄语转写，无需安装中文翻译模型。")
+                    "独立测试包可以在设置下载或导入模型。只测试转写无需安装翻译模型。")
                 .setNegativeButton("取消", null)
                 .setPositiveButton("打开模型设置") { _, _ ->
                     binding.btnSettings.performClick()
@@ -450,11 +550,11 @@ class MainActivity : AppCompatActivity() {
         isListening = false; isPaused = false
         voskAsr?.stopListening()
         translationQueue?.resume()
-        if (lastPartial.isNotBlank() && currentAsrModel != AppSettings.ASR_MODEL_GIGAAM) {
+        if (lastPartial.isNotBlank() && !needsFinalDrain) {
             val text = lastPartial; lastPartial = ""
             appendRussianSegment(text); translationQueue?.submit(text)
-        } else if (currentAsrModel == AppSettings.ASR_MODEL_GIGAAM) {
-            // Offline GigaAM may still be decoding a *final* utterance after Stop.
+        } else if (needsFinalDrain) {
+            // These recognizers can emit a final utterance after Stop.
             // Never persist speculative partial text as a second completed sentence.
             lastPartial = ""
         }
@@ -468,11 +568,11 @@ class MainActivity : AppCompatActivity() {
     private fun pauseListening() {
         isPaused = true
         voskAsr?.stopListening()
-        if (lastPartial.isNotBlank() && currentAsrModel != AppSettings.ASR_MODEL_GIGAAM) {
+        if (lastPartial.isNotBlank() && !needsFinalDrain) {
             val text = lastPartial; lastPartial = ""
             appendRussianSegment(text); translationQueue?.submit(text)
             updateRussianDisplay()
-        } else if (currentAsrModel == AppSettings.ASR_MODEL_GIGAAM) {
+        } else if (needsFinalDrain) {
             lastPartial = ""
             updateRussianDisplay()
         }
@@ -484,12 +584,12 @@ class MainActivity : AppCompatActivity() {
     }
     private fun resumeFromPause() {
         if (voskAsr == null) {
-            updateStatus(AppStatus.Error("俄语识别模型未就绪，请进入设置重新检查"))
+            updateStatus(AppStatus.Error("语音识别模型未就绪，请进入设置重新检查"))
             return
         }
-        if (currentAsrModel == AppSettings.ASR_MODEL_GIGAAM &&
+        if (needsFinalDrain &&
             voskAsr?.hasPendingResults() == true) {
-            updateStatus(AppStatus.Loading("正在保存暂停前最后一句俄语，完成后再继续"))
+            updateStatus(AppStatus.Loading("正在保存暂停前最后一句，完成后再继续"))
             return
         }
         isPaused = false
@@ -553,7 +653,15 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateStatus(status: AppStatus) {
         if (!isDestroyed && !settingsOpened) {
-            val engineTitle = if (gemmaTranslator?.isAvailable() == true)
+            val entry = multilingualAsr
+            val engineTitle = if (entry != null) {
+                val translation = if (gemmaTranslator?.isAvailable() == true) {
+                    val label = if (currentTranslationEngine == AppSettings.ENGINE_HYMT2) "HY-MT2 · CPU"
+                        else ModelCatalog.forEngine(currentTranslationEngine).title
+                    " → $label"
+                } else ""
+                "${entry.title}${currentAsrBackend?.let { " · $it" }.orEmpty()}$translation"
+            } else if (gemmaTranslator?.isAvailable() == true)
                 ModelCatalog.forEngine(currentTranslationEngine).title
             else when (currentAsrModel) {
                 AppSettings.ASR_MODEL_GIGAAM -> "GigaAM v2 俄语识别"
@@ -575,7 +683,7 @@ class MainActivity : AppCompatActivity() {
             isListening -> "正在聆听"
             status is AppStatus.Loading -> "正在准备模型"
             status is AppStatus.Error -> "设置语音识别"
-            status == AppStatus.AsrOnly -> "开始俄语转写"
+            status == AppStatus.AsrOnly -> "开始转写"
             else -> "开始同声传译"
         }
         binding.tvRecordCaption.text = when {
@@ -583,8 +691,8 @@ class MainActivity : AppCompatActivity() {
             isListening -> "点击左侧按钮停止并保存字幕"
             status is AppStatus.Loading -> "模型加载中，暂不可录音"
             status is AppStatus.Error -> "点击左侧按钮查看缺失模型"
-            status == AppStatus.AsrOnly -> "仅俄语原文 · 自动保存到历史"
-            else -> "俄语识别 + 中文翻译 · 全部本地处理"
+            status == AppStatus.AsrOnly -> "${sourceLabel}原文 · 自动保存到历史"
+            else -> "${sourceLabel}识别 + 中文翻译 · 全部本地处理"
         }
         binding.btnStartStop.imageTintList = ColorStateList.valueOf(
             Color.parseColor(if (busy) "#FFFFFFFF" else "#FF10201B"))
