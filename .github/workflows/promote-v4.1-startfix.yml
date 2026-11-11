@@ -1,0 +1,44 @@
+name: Publish CI-verified v4.1 clickable home Start APK
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/promote-v4.1-startfix.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  promote:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download and verify exact CI-tested APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/startfix-v41"
+          gh run download 42945995243 -R "$GITHUB_REPOSITORY" \
+            -n OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-GigaAM-v4.1-startfix \
+            -D "$RUNNER_TEMP/startfix-v41"
+          cd "$RUNNER_TEMP/startfix-v41"
+          NAME=OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-GigaAM-v4.1-startfix.apk
+          test -s "$NAME"
+          sed 's#^dist/##' SHA256SUMS.txt | sha256sum -c -
+          printf '%s  %s\n' "e2ec779ebcb2cc63c0a9a3550153062079604cb282d159b4f2bbeb4fe0945e87" "$NAME" | sha256sum -c -
+          unzip -t "$NAME" >/dev/null
+      - name: Push verified APK to permanent apk-downloads branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin apk-downloads:refs/remotes/origin/apk-downloads
+          git checkout -B apk-downloads refs/remotes/origin/apk-downloads
+          NAME=OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-GigaAM-v4.1-startfix.apk
+          cp "$RUNNER_TEMP/startfix-v41/$NAME" .
+          sha256sum "$NAME" > GigaAM-v4.1-startfix-SHA256SUMS.txt
+          git add "$NAME" GigaAM-v4.1-startfix-SHA256SUMS.txt
+          git commit -m "release: publish CI-tested v4.1 clickable Start and ASR-only APK"
+          git push origin HEAD:refs/heads/apk-downloads
