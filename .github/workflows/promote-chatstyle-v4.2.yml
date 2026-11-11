@@ -1,0 +1,44 @@
+name: Publish CI-verified v4.2 chat-style APK to GitHub direct downloads
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/promote-chatstyle-v4.2.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve exact Android-tested v4.2 package
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/v42"
+          gh run download 42964891700 -R "$GITHUB_REPOSITORY" \
+            -n OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-GigaAM-v4.2-chatstyle \
+            -D "$RUNNER_TEMP/v42"
+          cd "$RUNNER_TEMP/v42"
+          NAME=OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-GigaAM-v4.2-chatstyle.apk
+          test -s "$NAME"
+          sed 's#  dist/#  #' SHA256SUMS.txt | sha256sum -c -
+          printf '%s  %s\n' 'ba2c82a0f650483998ff275117c9e50322224aadeff3f1c6c13f630de1fb1441' "$NAME" | sha256sum -c -
+          test "$(stat -c%s "$NAME")" = "90583559"
+          unzip -t "$NAME" >/dev/null
+      - name: Preserve older builds and publish verified APK
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin apk-downloads:refs/remotes/origin/apk-downloads
+          git checkout -B apk-downloads refs/remotes/origin/apk-downloads
+          NAME=OfflineRealtimeTranslator-Gemma4-LMT-HYMT2-GigaAM-v4.2-chatstyle.apk
+          cp "$RUNNER_TEMP/v42/$NAME" "$NAME"
+          sha256sum "$NAME" > ChatStyle-v4.2-SHA256SUMS.txt
+          git add "$NAME" ChatStyle-v4.2-SHA256SUMS.txt
+          git commit -m "release: promote tested v4.2 ChatGPT-inspired Android UI preview"
+          git push origin HEAD:refs/heads/apk-downloads
