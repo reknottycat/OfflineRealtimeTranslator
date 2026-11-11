@@ -2,6 +2,7 @@ package com.bohanli.ruzhtranslator
 
 import android.Manifest
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Bundle
@@ -50,15 +51,13 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "MainActivity"
         private const val MODEL_RECASEPUNC = "vosk-recasepunc-ru-0.22"
+        // Subtle matched source/translation colors replace the distracting
+        // 16-color rainbow. Preserve visual alignment without overwhelming text.
         private val SEGMENT_COLORS = intArrayOf(
-            Color.parseColor("#FFFF6666"), Color.parseColor("#FFFF8855"),
-            Color.parseColor("#FFFF9944"), Color.parseColor("#FFFFBB44"),
-            Color.parseColor("#FFFFDD55"), Color.parseColor("#FFCCEE55"),
-            Color.parseColor("#FF80FF80"), Color.parseColor("#FF44FFBB"),
-            Color.parseColor("#FF44FFDD"), Color.parseColor("#FF44DDFF"),
-            Color.parseColor("#FF66BBFF"), Color.parseColor("#FF8899FF"),
-            Color.parseColor("#FFAA88FF"), Color.parseColor("#FFCC88FF"),
-            Color.parseColor("#FFFF80CC"), Color.parseColor("#FFFF80A0")
+            Color.parseColor("#FFE7E8E7"),
+            Color.parseColor("#FFC4D9D1"),
+            Color.parseColor("#FFD1D7E0"),
+            Color.parseColor("#FFE0D5C7")
         )
     }
     private lateinit var binding: ActivityMainBinding
@@ -199,12 +198,16 @@ class MainActivity : AppCompatActivity() {
 
     private fun setRussianFollow(enabled: Boolean) {
         autoScrollRussian = enabled
-        binding.tvFollowRu.text = if (enabled) "● 自动跟随" else "跟随已暂停 · 点击恢复"
+        binding.tvFollowRu.text = if (enabled) "● 自动跟随" else "回到最新"
+        binding.tvFollowRu.setTextColor(Color.parseColor(
+            if (enabled) "#FFB9D7CC" else "#FFF0F0F0"))
         binding.btnScrollBottomRu.visibility = if (enabled) View.GONE else View.VISIBLE
     }
     private fun setChineseFollow(enabled: Boolean) {
         autoScrollChinese = enabled
-        binding.tvFollowZh.text = if (enabled) "● 自动跟随" else "跟随已暂停 · 点击恢复"
+        binding.tvFollowZh.text = if (enabled) "● 自动跟随" else "回到最新"
+        binding.tvFollowZh.setTextColor(Color.parseColor(
+            if (enabled) "#FFB9D7CC" else "#FFF0F0F0"))
         binding.btnScrollBottomZh.visibility = if (enabled) View.GONE else View.VISIBLE
     }
     private fun scrollRussianToLatest() {
@@ -555,7 +558,37 @@ class MainActivity : AppCompatActivity() {
                 else -> "Vosk Small 俄语识别"
             }
             binding.tvStatus.text = engineTitle + " · " + status.toDisplayString()
+            binding.tvStatus.setTextColor(Color.parseColor(
+                if (status is AppStatus.Error) "#FFE8A6A2" else "#FFDFE2E0"))
+            updateComposerDock(status)
         }
+    }
+
+    /** An always-visible primary action mirrors the recorder state. */
+    private fun updateComposerDock(status: AppStatus) {
+        val busy = isListening || isPaused
+        binding.tvRecordAction.text = when {
+            isPaused -> "已暂停"
+            isListening -> "正在聆听"
+            status is AppStatus.Loading -> "正在准备模型"
+            status is AppStatus.Error -> "设置语音识别"
+            status == AppStatus.AsrOnly -> "开始俄语转写"
+            else -> "开始同声传译"
+        }
+        binding.tvRecordCaption.text = when {
+            isPaused -> "点击右侧继续 · 已识别字幕自动保存"
+            isListening -> "点击左侧按钮停止并保存字幕"
+            status is AppStatus.Loading -> "模型加载中，暂不可录音"
+            status is AppStatus.Error -> "点击左侧按钮查看缺失模型"
+            status == AppStatus.AsrOnly -> "仅俄语原文 · 自动保存到历史"
+            else -> "俄语识别 + 中文翻译 · 全部本地处理"
+        }
+        binding.btnStartStop.imageTintList = ColorStateList.valueOf(
+            Color.parseColor(if (busy) "#FFFFFFFF" else "#FF10201B"))
+        binding.btnStartStop.contentDescription =
+            if (busy) "停止监听并保存字幕" else "开始监听"
+        binding.btnPauseResume.contentDescription =
+            if (isPaused) "继续监听" else "暂停监听"
     }
     private fun appendRussianSegment(text: String) {
         russianSegments.add(text)
