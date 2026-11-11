@@ -6,7 +6,7 @@ import org.junit.Test
 
 class AsrBundleCatalogTest {
     @Test fun modelsMatchKnownAndroidOnnxSizes() {
-        assertEquals(999_015_347L, AsrBundleCatalog.QWEN.totalBytes)
+        assertEquals(987_015_347L, AsrBundleCatalog.QWEN.totalBytes)
         assertEquals(682_215_356L, AsrBundleCatalog.NEMOTRON.totalBytes)
     }
     @Test fun defaultSourceNeverFetchesIncompatibleModelScopeRawWeights() {
