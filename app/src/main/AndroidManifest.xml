@@ -26,6 +26,10 @@
             android:name=".asr.NemotronQnnService"
             android:process=":nemotron_qnn"
             android:exported="false" />
+        <service
+            android:name=".asr.QwenNpuAsrService"
+            android:process=":qwen_npu"
+            android:exported="false" />
         <activity
             android:name=".MainActivity"
             android:exported="true">

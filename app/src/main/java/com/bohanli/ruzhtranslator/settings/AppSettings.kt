@@ -10,7 +10,6 @@ object AppSettings {
     private const val KEY_ASR_MODEL = "asr_model"
     private const val KEY_ASR_SOURCE = "asr_download_source"
     private const val KEY_ASR_LANGUAGE = "asr_language"
-    private const val KEY_ASR_QNN = "asr_qnn"
     private const val KEY_TRANSLATION_ENGINE = "translation_engine"
     private const val KEY_INFERENCE_BACKEND = "inference_backend"
     private const val KEY_MODEL_SOURCE = "model_source"
@@ -65,9 +64,6 @@ object AppSettings {
     var asrLanguage: String
         get() = prefs?.getString(KEY_ASR_LANGUAGE, "auto") ?: "auto"
         set(value) { prefs?.edit()?.putString(KEY_ASR_LANGUAGE, value)?.apply() }
-    var preferAsrQnn: Boolean
-        get() = prefs?.getBoolean(KEY_ASR_QNN, true) ?: true
-        set(value) { prefs?.edit()?.putBoolean(KEY_ASR_QNN, value)?.apply() }
     var translationEngine: String
         get() = prefs?.getString(KEY_TRANSLATION_ENGINE, ENGINE_HYMT2) ?: ENGINE_HYMT2
         set(value) { prefs?.edit()?.putString(KEY_TRANSLATION_ENGINE, value)?.apply() }

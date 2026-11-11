@@ -2,7 +2,8 @@
 """Fetch pinned native Android dependencies without committing their binaries.
 
 The default uses upstream Sherpa for CPU. The optional QNN preview uses the
-XDcobra Sherpa and ONNX Runtime build pair and Qualcomm's Maven QNN Runtime.
+XDcobra Sherpa and ONNX Runtime build pair, Qualcomm's Maven QNN Runtimes,
+and Google's LiteRT Qualcomm dispatch library for the Qwen ASR model.
 The Qualcomm runtime is separately licensed:
 https://softwarecenter.qualcomm.com/api/download/software/licenses/ai_model_hub/v1/LICENSE.pdf
 """
@@ -52,6 +53,18 @@ QNN = (
         "https://repo.maven.apache.org/maven2/com/qualcomm/qti/qnn-runtime/"
         "2.40.0/qnn-runtime-2.40.0.aar",
         "a39572b77013f2c58657d05f08cad36ab256cc44402df746de5850b3b6d94397",
+    ),
+    Archive(
+        "qnn-runtime-2.50.0.aar",
+        "https://repo.maven.apache.org/maven2/com/qualcomm/qti/qnn-runtime/"
+        "2.50.0/qnn-runtime-2.50.0.aar",
+        "b507656e4031d8aa6a7ab0fecf725b941096737ad7440ad7ea288f7c9cc9d743",
+    ),
+    Archive(
+        "litert-npu-runtime-qualcomm-2.3.0.aar",
+        "https://dl.google.com/dl/android/maven2/com/google/ai/edge/litert/"
+        "litert-npu-runtime-qualcomm/2.3.0/litert-npu-runtime-qualcomm-2.3.0.aar",
+        "55aa22e89b7decb9e2f56548188b9e8c42cc8f7a828e2ec4a17715079b313679",
     ),
 )
 

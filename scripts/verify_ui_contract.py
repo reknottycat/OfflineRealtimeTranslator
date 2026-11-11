@@ -26,7 +26,7 @@ REQUIRED = {
         "rb_backend_cpu", "tv_backend_note",
         "radio_asr_model", "rb_asr_small", "rb_asr_large", "rb_asr_gigaam",
         "rb_asr_nemotron", "rb_asr_qwen", "spinner_asr_language",
-        "tv_asr_language_label", "switch_asr_qnn",
+        "tv_asr_language_label", "btn_download_asr_cpu",
         "spinner_asr_source", "tv_asr_hint", "et_asr_url", "tv_asr_status",
         "progress_asr", "btn_download_asr", "btn_pause_asr", "btn_import_asr",
         "btn_import_asr_folder", "btn_remove_asr",

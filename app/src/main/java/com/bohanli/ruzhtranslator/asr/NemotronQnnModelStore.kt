@@ -142,7 +142,7 @@ class NemotronQnnModelStore private constructor(
 
         fun forCurrentDevice(context: Context): NemotronQnnModelStore? {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || "arm64-v8a" !in Build.SUPPORTED_64_BIT_ABIS) return null
-            val soc = Build.SOC_MODEL.trim().uppercase(Locale.ROOT)
+            val soc = QnnNemotronAsrEngine.chipset() ?: return null
             return specs[soc]?.let { NemotronQnnModelStore(context, soc, it) }
         }
 

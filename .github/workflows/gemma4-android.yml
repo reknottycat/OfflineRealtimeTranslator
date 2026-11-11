@@ -1,4 +1,4 @@
-name: v4.3 multilingual ASR Android APK
+name: v4.4 Auto ASR Android APK
 on:
   pull_request:
   workflow_dispatch:
@@ -19,13 +19,13 @@ jobs:
           - backend: cpu
             qnn_enabled: '0'
             enable_qnn: 'false'
-            application_suffix: .preview.multilingual
+            application_suffix: .preview.asrauto
           - backend: qnn
             qnn_enabled: '1'
             enable_qnn: 'true'
-            application_suffix: .preview.multilingual.qnn
+            application_suffix: .preview.asrauto.qnn
     env:
-      APK_PATH: dist/OfflineRealtimeTranslator-v4.3-alpha-multilingual-asr-${{ matrix.backend }}-arm64.apk
+      APK_PATH: dist/OfflineRealtimeTranslator-v4.4-alpha-auto-asr-${{ matrix.backend }}-arm64.apk
       QNN_ENABLED: ${{ matrix.qnn_enabled }}
     steps:
       - uses: actions/checkout@v4
@@ -71,13 +71,21 @@ jobs:
           done
           if [[ "$QNN_ENABLED" == '1' ]]; then
             ort_version=1.28.1
+            grep -Fxq 'lib/arm64-v8a/libLiteRt.so' dist/apk-contents.txt
             for library in libQnnHtp.so libQnnSystem.so libQnnHtpV79Stub.so libQnnHtpV79Skel.so libQnnHtpV81Stub.so libQnnHtpV81Skel.so; do
               grep -Fxq "lib/arm64-v8a/$library" dist/apk-contents.txt
+              cmp <(unzip -p "$APK_PATH" "assets/qwen-npu-runtime/$library") \
+                <(unzip -p app/libs/qnn-runtime-2.50.0.aar "jni/arm64-v8a/$library")
+              grep -Fxq "assets/qwen-npu-runtime/$library" dist/apk-contents.txt
             done
+            dispatcher=libLiteRtDispatch_Qualcomm.so
+            grep -Fxq "assets/qwen-npu-runtime/$dispatcher" dist/apk-contents.txt
+            cmp <(unzip -p "$APK_PATH" "assets/qwen-npu-runtime/$dispatcher") \
+              <(unzip -p app/libs/litert-npu-runtime-qualcomm-2.3.0.aar "jni/arm64-v8a/$dispatcher")
             grep -Fq "OrtGetApiBase@VERS_$ort_version" "$RUNNER_TEMP/apk-abi/libsherpa-onnx-jni.so.symbols"
           else
             ort_version=1.17.3
-            if grep -Fq 'lib/arm64-v8a/libQnnHtp.so' dist/apk-contents.txt; then
+            if grep -Eq '^(lib/arm64-v8a/libQnnHtp\.so|lib/arm64-v8a/libLiteRt\.so|assets/qwen-npu-runtime/)' dist/apk-contents.txt; then
               echo 'Unexpected Qualcomm runtime in the CPU APK' >&2
               exit 1
             fi
@@ -90,12 +98,12 @@ jobs:
           grep -Fq "OrtGetApiBase@@VERS_$ort_version" "$RUNNER_TEMP/apk-abi/libonnxruntime.so.symbols"
           grep -Fq "OrtGetApiBase@VERS_$ort_version" "$RUNNER_TEMP/apk-abi/libonnxruntime4j_jni.so.symbols"
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK_PATH" > dist/apk-badging.txt
-          grep -F "name='$APPLICATION_ID' versionCode='43' versionName='4.3-alpha-multilingual-asr'" dist/apk-badging.txt
+          grep -F "name='$APPLICATION_ID' versionCode='44' versionName='4.4-alpha-auto-asr'" dist/apk-badging.txt
           (cd dist && sha256sum ./*.apk) > dist/SHA256SUMS.txt
       - name: APK download
         uses: actions/upload-artifact@v4
         with:
-          name: OfflineRealtimeTranslator-v4.3-alpha-multilingual-asr-${{ matrix.backend }}-arm64
+          name: OfflineRealtimeTranslator-v4.4-alpha-auto-asr-${{ matrix.backend }}-arm64
           path: dist/
           if-no-files-found: error
           retention-days: 30

@@ -4,6 +4,8 @@ plugins {
 }
 
 val enableQnn = providers.gradleProperty("enableQnn").map(String::toBooleanStrict).orElse(false).get()
+val liteRtVersion = "2.3.0"
+val qwenNpuAssets = layout.buildDirectory.dir("generated/qwenNpuAssets")
 
 android {
     namespace = "com.bohanli.ruzhtranslator"
@@ -13,8 +15,8 @@ android {
         applicationId = "com.bohanli.ruzhtranslator"
         minSdk = 29
         targetSdk = 36
-        versionCode = 43
-        versionName = "4.3-alpha-multilingual-asr"
+        versionCode = 44
+        versionName = "4.4-alpha-auto-asr"
         buildConfigField("boolean", "QNN_ENABLED", enableQnn.toString())
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += "arm64-v8a" }
@@ -24,9 +26,9 @@ android {
     }
     signingConfigs { getByName("debug") }
     buildTypes {
-        // These debug previews can be installed beside v4.2 and each other.
+        // These debug previews can be installed beside the previous previews.
         debug {
-            applicationIdSuffix = if (enableQnn) ".preview.multilingual.qnn" else ".preview.multilingual"
+            applicationIdSuffix = if (enableQnn) ".preview.asrauto.qnn" else ".preview.asrauto"
         }
         release {
             isMinifyEnabled = false
@@ -63,6 +65,41 @@ android {
     androidResources { noCompress += listOf("bin", "onnx", "model", "bpe", "litertlm", "gguf") }
 }
 
+kotlin {
+    compilerOptions {
+        // LiteRT 2.3.0 publishes newer Kotlin metadata. Its documented ASR
+        // sample uses this flag with the older Android Kotlin compiler too.
+        freeCompilerArgs.add("-Xskip-metadata-version-check")
+    }
+}
+
+if (enableQnn) {
+    // LiteRT 2.3.0's dispatcher is built with QAIRT 2.50. Keep it separate from
+    // the 2.40 runtime that the Nemotron service uses for its context binaries.
+    val prepareQwenNpuAssets = tasks.register<Sync>("prepareQwenNpuAssets") {
+        into(qwenNpuAssets.map { it.dir("qwen-npu-runtime") })
+        from(zipTree("libs/qnn-runtime-2.50.0.aar")) {
+            include(
+                "jni/arm64-v8a/libQnnHtp.so",
+                "jni/arm64-v8a/libQnnSystem.so",
+                "jni/arm64-v8a/libQnnHtpV79Stub.so",
+                "jni/arm64-v8a/libQnnHtpV79Skel.so",
+                "jni/arm64-v8a/libQnnHtpV81Stub.so",
+                "jni/arm64-v8a/libQnnHtpV81Skel.so",
+            )
+            eachFile { path = name }
+            includeEmptyDirs = false
+        }
+        from(zipTree("libs/litert-npu-runtime-qualcomm-$liteRtVersion.aar")) {
+            include("jni/arm64-v8a/libLiteRtDispatch_Qualcomm.so")
+            eachFile { path = name }
+            includeEmptyDirs = false
+        }
+    }
+    android.sourceSets["main"].assets.srcDir(qwenNpuAssets)
+    tasks.named("preBuild").configure { dependsOn(prepareQwenNpuAssets) }
+}
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation("androidx.documentfile:documentfile:1.0.1")
@@ -72,12 +109,14 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.vosk.android)
     implementation("org.apache.commons:commons-compress:1.28.0")
+    implementation("com.google.ai.edge.litert:litert-api:$liteRtVersion")
     // Download and verify the selected native dependencies with scripts/setup_sherpa_aar.py.
     if (enableQnn) {
         implementation(files("libs/sherpa-onnx-2.0.1-1-qnn.aar"))
         // The QNN Sherpa binary requires this newer ORT ABI. Its Java API also serves recasepunc.
         implementation(files("libs/onnxruntime-1.28.1-xdcobra.aar"))
         implementation(files("libs/qnn-runtime-2.40.0.aar"))
+        implementation("com.google.ai.edge.litert:litert:$liteRtVersion")
     } else {
         // Sherpa carries its own statically linked ORT, so recasepunc keeps its matching Java/ELF pair.
         implementation(files("libs/sherpa-onnx-static-link-onnxruntime-2.0.1.aar"))

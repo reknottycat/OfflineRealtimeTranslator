@@ -17,6 +17,10 @@ import androidx.appcompat.app.AlertDialog
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import com.bohanli.ruzhtranslator.asr.AsrAccelerationPolicy
+import com.bohanli.ruzhtranslator.asr.AsrBackend
+import com.bohanli.ruzhtranslator.asr.QwenNpuAsrEngine
+import com.bohanli.ruzhtranslator.asr.QwenNpuModelStore
 import com.bohanli.ruzhtranslator.asr.RecasepuncProcessor
 import com.bohanli.ruzhtranslator.asr.MultilingualAsrCatalog
 import com.bohanli.ruzhtranslator.asr.MultilingualAsrManager
@@ -409,46 +413,68 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private suspend fun loadMultilingualAsr(entry: MultilingualAsrCatalog.Entry): AsrEngine {
+    private suspend fun loadMultilingualAsr(
+        entry: MultilingualAsrCatalog.Entry,
+        tryNpu: Boolean = true
+    ): AsrEngine {
         val error: (String) -> Unit = { message ->
             runOnUiThread {
                 if (!isDestroyed && !settingsOpened) {
                     if (isListening || isPaused) stopListening()
-                    val failedQnn = voskAsr as? QnnNemotronAsrEngine
-                    if (failedQnn != null && !failedQnn.isUsable) {
-                        failedQnn.release()
+                    val failedNpu = voskAsr as? QnnNemotronAsrEngine
+                    if (failedNpu != null && !failedNpu.isUsable) {
+                        failedNpu.release()
                         voskAsr = null
                         currentAsrBackend = null
-                        lastModelLoadError = "$message · 可在设置切换 CPU"
+                        reloadAsrOnCpu(entry, message)
+                    } else {
+                        updateStatus(AppStatus.Error(message))
                     }
-                    updateStatus(AppStatus.Error(message))
                 }
             }
         }
-        val qnnStore = if (currentAsrModel == MultilingualAsrCatalog.NEMOTRON &&
-            AppSettings.preferAsrQnn && QnnNemotronAsrEngine.isRuntimePresent(this))
-            NemotronQnnModelStore.forCurrentDevice(this) else null
-        var qnnFailure: Exception? = null
-        if (qnnStore?.installed() == true) {
-            val qnn = QnnNemotronAsrEngine(this, qnnStore.directory, currentAsrLanguage,
-                ::onVoskPartial, ::onAsrFinal, error, ::refreshStoppedState)
+        val chipset = QnnNemotronAsrEngine.chipset()
+        val qnnStore = if (tryNpu && entry.directory == MultilingualAsrCatalog.NEMOTRON &&
+            QnnNemotronAsrEngine.isRuntimePresent(this)) {
+            NemotronQnnModelStore.forCurrentDevice(this)?.takeIf { it.installed() }
+        } else null
+        val qwenStore = if (tryNpu && entry.directory == MultilingualAsrCatalog.QWEN &&
+            chipset != null && QwenNpuAsrEngine.isRuntimePresent(this)) {
+            QwenNpuModelStore.forChip(this, chipset)?.takeIf { it.installed() }
+        } else null
+        val cpuReady = entry.files.all { ModelDownloader(this, it).installed() }
+        val cpuDirectory = File(filesDir, "models/${entry.directory}")
+        val backend = AsrAccelerationPolicy.backend(
+            entry.directory, chipset, tryNpu, qnnStore != null || qwenStore != null, cpuReady
+        )
+        if (backend == AsrBackend.NPU) {
+            val accelerator = if (qnnStore != null) {
+                QnnNemotronAsrEngine(this, qnnStore.directory, currentAsrLanguage,
+                    ::onVoskPartial, ::onAsrFinal, error, ::refreshStoppedState)
+            } else {
+                val store = checkNotNull(qwenStore)
+                MultilingualAsrManager(this, cpuDirectory, entry.directory, currentAsrLanguage,
+                    ::onVoskPartial, ::onAsrFinal, error, ::refreshStoppedState,
+                    qwenNpu = QwenNpuAsrEngine(this, store.modelFile, store.vocabFile),
+                    cpuQwenAvailable = cpuReady,
+                    onCpuFallback = {
+                        currentAsrBackend = "CPU"
+                        updateStatus(if (isListening) AppStatus.Listening else AppStatus.Loading("正在完成最后一段识别"))
+                    })
+            }
             try {
-                qnn.initialize()
+                accelerator.initialize()
                 currentAsrBackend = "骁龙 NPU"
-                return qnn
+                return accelerator
             } catch (failure: Exception) {
-                qnn.release()
+                accelerator.release()
                 if (failure is CancellationException) throw failure
-                qnnFailure = failure
-                Log.w(TAG, "Nemotron QNN initialization failed", failure)
+                Log.w(TAG, "ASR NPU initialization failed for ${entry.directory}", failure)
+                check(cpuReady) { "骁龙 NPU 启动失败，请在设置下载 CPU 备用模型" }
             }
         }
-        check(entry.files.all { ModelDownloader(this, it).installed() }) {
-            if (qnnFailure != null) "骁龙 NPU 初始化失败，请在设置关闭 NPU 并下载 CPU 模型"
-            else "${entry.title} 尚未安装，请在设置中下载模型"
-        }
-        val directory = File(filesDir, "models/${entry.directory}")
-        val cpu = MultilingualAsrManager(this, directory, currentAsrModel, currentAsrLanguage,
+        check(cpuReady) { "${entry.title} 尚未安装，请在设置中下载模型" }
+        val cpu = MultilingualAsrManager(this, cpuDirectory, entry.directory, currentAsrLanguage,
             ::onVoskPartial, ::onAsrFinal, error, ::refreshStoppedState)
         try {
             cpu.initialize()
@@ -457,6 +483,26 @@ class MainActivity : AppCompatActivity() {
         } catch (failure: Exception) {
             cpu.release()
             throw failure
+        }
+    }
+
+    private fun reloadAsrOnCpu(entry: MultilingualAsrCatalog.Entry, message: String) {
+        updateStatus(AppStatus.Loading("NPU 连接中断，正在加载 CPU 备用模型"))
+        modelsLoading = mainScope.launch {
+            var cpu: AsrEngine? = null
+            try {
+                withContext(Dispatchers.IO) { cpu = loadMultilingualAsr(entry, tryNpu = false) }
+                voskAsr = cpu
+                cpu = null
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                Log.w(TAG, "ASR CPU fallback unavailable", failure)
+                lastModelLoadError = "$message · 可在设置下载 CPU 备用模型"
+            } finally {
+                cpu?.release()
+                refreshStoppedState()
+            }
         }
     }
 
@@ -660,7 +706,9 @@ class MainActivity : AppCompatActivity() {
                         else ModelCatalog.forEngine(currentTranslationEngine).title
                     " → $label"
                 } else ""
-                "${entry.title}${currentAsrBackend?.let { " · $it" }.orEmpty()}$translation"
+                val asrTitle = if (entry.directory == MultilingualAsrCatalog.QWEN &&
+                    currentAsrBackend == "骁龙 NPU") "Qwen3-ASR 0.6B" else entry.title
+                "$asrTitle${currentAsrBackend?.let { " · $it" }.orEmpty()}$translation"
             } else if (gemmaTranslator?.isAvailable() == true)
                 ModelCatalog.forEngine(currentTranslationEngine).title
             else when (currentAsrModel) {
