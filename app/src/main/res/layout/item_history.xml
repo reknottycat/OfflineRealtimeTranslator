@@ -27,7 +27,7 @@
             android:layout_height="48dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_star_outline"
-            android:tint="#FFC6CAC8"
+            app:tint="#FFC6CAC8"
             android:scaleType="centerInside"
             android:padding="4dp" />
 
