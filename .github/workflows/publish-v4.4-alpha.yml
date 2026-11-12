@@ -1,0 +1,89 @@
+name: Publish verified v4.4 Alpha APKs
+on:
+  push:
+    branches: [release/publish-v4.4-alpha]
+    paths: [.github/workflows/publish-v4.4-alpha.yml]
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: publish-v4.4-alpha
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'reknottycat/OfflineRealtimeTranslator'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BUILD_RUN: '43085429951'
+      SOURCE_COMMIT: 804d2a1195663b848d9cdf6032f3b4dd6e2250b9
+      TAG: v4.4-alpha
+    steps:
+      - name: Verify the original CI run and retrieve signed APKs
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN" |
+            jq -e --arg sha "$SOURCE_COMMIT" '.conclusion == "success" and .head_sha == $sha'
+
+          release_dir="$RUNNER_TEMP/v44-release"
+          mkdir -p "$release_dir"
+
+          stage_apk() {
+            local variant="$1" expected_sha="$2" expected_size="$3" app_id="$4"
+            local artifact="OfflineRealtimeTranslator-v4.4-alpha-auto-asr-$variant-arm64"
+            local download_dir="$RUNNER_TEMP/$variant"
+            gh run download "$BUILD_RUN" --repo "$GITHUB_REPOSITORY" --name "$artifact" --dir "$download_dir"
+            (
+              cd "$download_dir"
+              sha256sum --check --strict SHA256SUMS.txt
+              printf '%s  %s\n' "$expected_sha" "$artifact.apk" | sha256sum --check --strict -
+              test "$(stat -c%s "$artifact.apk")" = "$expected_size"
+              grep -Fq "package: name='$app_id' versionCode='44' versionName='4.4-alpha-auto-asr'" apk-badging.txt
+              grep -Fxq "native-code: 'arm64-v8a'" apk-badging.txt
+              grep -Fxq 'Verified using v2 scheme (APK Signature Scheme v2): true' apk-signature.txt
+              jq -e --arg sha "$SOURCE_COMMIT" --arg run "$BUILD_RUN" '
+                .pr_head_sha == $sha and .workflow_run_id == $run and
+                .unit_tests.tests == 85 and .unit_tests.failures == 0 and
+                .unit_tests.errors == 0 and .unit_tests.skipped == 0 and .lint_errors == 0
+              ' validation.json
+              cp "$artifact.apk" "$release_dir/"
+            )
+          }
+
+          stage_apk qnn c9888358d5a4bc8bb58deca61e0080aaac2c8215ad154ccee5266299bb38e2f8 \
+            137166199 com.bohanli.ruzhtranslator.preview.asrauto.qnn
+          stage_apk cpu c5e5a76389a6a3eeb4222e5cc3729242930a86b40ebb4001801b19878922f8d3 \
+            107487583 com.bohanli.ruzhtranslator.preview.asrauto
+
+          cd "$release_dir"
+          sha256sum ./*.apk > SHA256SUMS.txt
+
+      - name: Publish v4.4 Alpha as a GitHub prerelease
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/v44-release"
+          cat > "$RUNNER_TEMP/v44-notes.md" <<'NOTES'
+          Android ARM64 测试版，含骁龙 NPU 版和 CPU 版两个 APK。
+
+          - **骁龙版（QNN）**。千问 Qwen3-ASR 0.6B 和 Nemotron 3.5 Streaming 0.6B 支持 SM8750、SM8850 的 NPU 后端。应用按芯片选择匹配的已安装权重，启动失败时切到已安装的 CPU 备用模型。
+          - **CPU 版**。两个语音识别模型均使用 CPU。HY-MT2 在两个 APK 中都使用 CPU 翻译。
+          - 两份 APK 均通过签名检查，分别通过 85 项测试，Lint 无错误。骁龙真机上的 NPU 启用、性能和连续录音稳定性仍待验证。
+          - 模型权重需另行下载。测试包使用独立应用 ID，可与 v4.3 测试包并装。
+
+          [原始构建与测试记录](https://github.com/reknottycat/OfflineRealtimeTranslator/actions/runs/43085429951)
+          NOTES
+
+          gh release create "$TAG" \
+            "OfflineRealtimeTranslator-v4.4-alpha-auto-asr-qnn-arm64.apk#骁龙 NPU 版（ARM64）" \
+            "OfflineRealtimeTranslator-v4.4-alpha-auto-asr-cpu-arm64.apk#CPU 版（ARM64）" \
+            SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" --target "$SOURCE_COMMIT" \
+            --title 'v4.4 Alpha · 离线语音识别（骁龙 NPU / CPU）' \
+            --prerelease --latest=false --notes-file "$RUNNER_TEMP/v44-notes.md"
+
+          gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" |
+            jq -e --arg sha "$SOURCE_COMMIT" '.object.type == "commit" and .object.sha == $sha'
