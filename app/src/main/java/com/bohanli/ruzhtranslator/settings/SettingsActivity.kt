@@ -2,6 +2,7 @@ package com.bohanli.ruzhtranslator.settings
 
 import android.net.Uri
 import android.os.Bundle
+import android.text.format.Formatter
 import android.view.View
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
@@ -448,6 +449,7 @@ class SettingsActivity : AppCompatActivity() {
     private fun startAsrOperation(isDownload: Boolean = false, action: suspend () -> Unit) {
         if (busy) return
         asrDownloading = isDownload
+        if (isDownload) showAsrProgress(VoskArchiveInstaller.Progress(0, 0, "正在准备下载语音模型"))
         setBusy(true)
         operationJob = uiScope.launch {
             try { action(); refreshAsrUi() }
@@ -462,10 +464,14 @@ class SettingsActivity : AppCompatActivity() {
     }
     private fun showAsrProgress(p: VoskArchiveInstaller.Progress) = runOnUiThread {
         if (!isDestroyed && !isFinishing) {
-            val ratio = if (p.total > 0) (p.bytes * 100 / p.total).toInt().coerceIn(0, 100) else 0
-            binding.progressAsr.progress = ratio
-            binding.tvAsrStatus.text = p.stage + " · " + (p.bytes / 1024 / 1024) + " MiB" +
-                if (p.total > 0) " · " + ratio + "%" else ""
+            binding.progressAsr.isIndeterminate = p.total <= 0
+            binding.tvAsrStatus.text = if (p.total > 0) {
+                val ratio = (p.bytes * 100 / p.total).toInt().coerceIn(0, 100)
+                binding.progressAsr.progress = ratio
+                val current = Formatter.formatFileSize(this, p.bytes)
+                val total = Formatter.formatFileSize(this, p.total)
+                "${p.stage}\n$current / $total · $ratio%"
+            } else p.stage
         }
     }
     private fun refreshModelUi() {

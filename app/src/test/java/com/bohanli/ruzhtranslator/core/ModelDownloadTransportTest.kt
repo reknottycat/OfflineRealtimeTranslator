@@ -54,6 +54,8 @@ class ModelDownloadTransportTest {
             assertEquals((0 until 7).map { "bytes=${it * 8}-${minOf(it * 8 + 7, 52)}" }.toSet(), server.requests.map { it.range }.toSet())
             assertEquals(8, journal(file).readLines().size)
             assertTrue(progress.all { it.received in 0..data.size.toLong() && it.expected == data.size.toLong() })
+            val verification = progress.filter { it.stage == "校验完整模型 SHA-256" }
+            assertEquals(listOf(0L, data.size.toLong()), verification.map { it.received })
             assertTrue(server.requests.all { it.method == "GET" })
         }
     }
