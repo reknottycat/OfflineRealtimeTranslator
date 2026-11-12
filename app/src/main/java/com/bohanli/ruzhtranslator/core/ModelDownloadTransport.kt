@@ -408,6 +408,7 @@ internal class ModelDownloadTransport(
 
     private suspend fun verify(file: File, progress: (Long) -> Unit): Boolean {
         if (!file.isFile || file.length() != spec.bytes) return false
+        progress(0)
         val digest = MessageDigest.getInstance("SHA-256")
         var count = 0L
         file.inputStream().use { input ->
@@ -418,10 +419,12 @@ internal class ModelDownloadTransport(
                 if (read < 0) break
                 digest.update(buffer, 0, read)
                 count += read
-                if (count % (64L * 1024 * 1024) < buffer.size) progress(count)
+                if (count < spec.bytes && count % (64L * 1024 * 1024) < buffer.size) progress(count)
             }
         }
-        return hex(digest.digest()) == spec.sha256
+        val verified = hex(digest.digest()) == spec.sha256
+        if (verified) progress(count)
+        return verified
     }
 
     private inner class ProgressSink(private val callback: (Progress) -> Unit) {

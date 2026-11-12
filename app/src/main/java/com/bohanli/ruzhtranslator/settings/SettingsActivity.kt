@@ -2,6 +2,7 @@ package com.bohanli.ruzhtranslator.settings
 
 import android.net.Uri
 import android.os.Bundle
+import android.text.format.Formatter
 import android.view.View
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
@@ -11,12 +12,15 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.AppCompatRadioButton
+import com.bohanli.ruzhtranslator.BuildConfig
 import com.bohanli.ruzhtranslator.R
 import com.bohanli.ruzhtranslator.asr.VoskModelCatalog
 import com.bohanli.ruzhtranslator.asr.GigaAmCatalog
 import com.bohanli.ruzhtranslator.asr.MultilingualAsrCatalog
 import com.bohanli.ruzhtranslator.asr.NemotronQnnModelStore
 import com.bohanli.ruzhtranslator.asr.QnnNemotronAsrEngine
+import com.bohanli.ruzhtranslator.asr.QwenNpuAsrEngine
+import com.bohanli.ruzhtranslator.asr.QwenNpuModelStore
 import com.bohanli.ruzhtranslator.asr.VoskArchiveInstaller
 import com.bohanli.ruzhtranslator.core.ModelManager
 import com.bohanli.ruzhtranslator.core.ModelCatalog
@@ -50,12 +54,31 @@ class SettingsActivity : AppCompatActivity() {
     private var renderedEngine = AppSettings.ENGINE_GEMMA4
     private var pendingImportEngine = AppSettings.ENGINE_GEMMA4
     private fun selectedModel() = ModelCatalog.forEngine(AppSettings.translationEngine)
-    private fun availableQnnStore(): NemotronQnnModelStore? =
-        if (AppSettings.asrModel == MultilingualAsrCatalog.NEMOTRON &&
-            QnnNemotronAsrEngine.isRuntimePresent(this)) NemotronQnnModelStore.forCurrentDevice(this)
-        else null
+    private class NpuPackage(
+        val chip: String,
+        val size: String,
+        val installed: Boolean,
+        val download: suspend ((ModelDownloader.Progress) -> Unit) -> Unit,
+        val remove: suspend () -> Unit
+    )
 
-    private fun selectedQnnStore() = availableQnnStore()?.takeIf { AppSettings.preferAsrQnn }
+    private fun selectedNpuPackage(): NpuPackage? {
+        val chip = QnnNemotronAsrEngine.chipset() ?: return null
+        return when (AppSettings.asrModel) {
+            MultilingualAsrCatalog.NEMOTRON -> {
+                if (!QnnNemotronAsrEngine.isRuntimePresent(this)) return null
+                val store = NemotronQnnModelStore.forCurrentDevice(this) ?: return null
+                NpuPackage(chip, "约 443 MB", store.installed(), store::download, store::remove)
+            }
+            MultilingualAsrCatalog.QWEN -> {
+                if (!QwenNpuAsrEngine.isRuntimePresent(this)) return null
+                val store = QwenNpuModelStore.forChip(this, chip) ?: return null
+                NpuPackage(chip, "约 1.90 GB", store.installed(), store::download, store::remove)
+            }
+            else -> null
+        }
+    }
+
     private val importModel = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) {
             val installer = ModelDownloader(this, ModelCatalog.forEngine(pendingImportEngine))
@@ -116,7 +139,7 @@ class SettingsActivity : AppCompatActivity() {
                 bottomMargin = (7 * resources.displayMetrics.density).toInt()
             })
         binding.btnBack.setOnClickListener { finish() }
-        binding.tvVersion.text = "v4.3-alpha · 离线多语语音识别"
+        binding.tvVersion.text = "v${BuildConfig.VERSION_NAME} · 离线多语语音识别"
         binding.radioAsrModel.check(when (AppSettings.asrModel) {
             AppSettings.ASR_MODEL_GIGAAM -> binding.rbAsrGigaam.id
             AppSettings.ASR_MODEL_LARGE -> binding.rbAsrLarge.id
@@ -146,13 +169,6 @@ class SettingsActivity : AppCompatActivity() {
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
-        binding.switchAsrQnn.isChecked = AppSettings.preferAsrQnn
-        binding.switchAsrQnn.setOnCheckedChangeListener { _, checked ->
-            if (!busy) {
-                AppSettings.preferAsrQnn = checked
-                refreshAsrUi()
-            }
-        }
         binding.spinnerAsrSource.adapter = ArrayAdapter(this, R.layout.spinner_item,
             arrayOf("自动 · 国内 HF Mirror 优先（Small/GigaAM）", "国内镜像优先（Large 只使用官方）",
                 "模型官方源优先", "自定义 HTTPS ZIP / ONNX 直链"))
@@ -165,8 +181,11 @@ class SettingsActivity : AppCompatActivity() {
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
+        binding.btnDownloadAsrCpu.setOnClickListener {
+            MultilingualAsrCatalog.forId(AppSettings.asrModel)?.let(::downloadCpuAsr)
+        }
         binding.btnDownloadAsr.setOnClickListener {
-            selectedQnnStore()?.let { store ->
+            selectedNpuPackage()?.let { store ->
                 startAsrOperation(isDownload = true) {
                     store.download { p ->
                         showAsrProgress(VoskArchiveInstaller.Progress(p.received, p.expected, p.stage))
@@ -175,20 +194,7 @@ class SettingsActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
             MultilingualAsrCatalog.forId(AppSettings.asrModel)?.let { entry ->
-                startAsrOperation(isDownload = true) {
-                    val total = entry.files.sumOf { it.bytes }
-                    var completed = 0L
-                    for (file in entry.files) {
-                        val downloader = ModelDownloader(this, file)
-                        if (!downloader.installed()) {
-                            downloader.download(entry.urls(file)) { p ->
-                                showAsrProgress(VoskArchiveInstaller.Progress(
-                                    completed + p.received, total, "${file.fileName} · ${p.stage}"))
-                            }
-                        }
-                        completed += file.bytes
-                    }
-                }
+                downloadCpuAsr(entry)
                 return@setOnClickListener
             }
             if (AppSettings.asrModel == AppSettings.ASR_MODEL_GIGAAM) {
@@ -235,23 +241,14 @@ class SettingsActivity : AppCompatActivity() {
             importAsrFolder.launch(null)
         }
         binding.btnRemoveAsr.setOnClickListener {
-            selectedQnnStore()?.let { store ->
-                AlertDialog.Builder(this).setTitle("删除 Nemotron 骁龙 NPU 模型？")
-                    .setMessage("仅删除 ${store.socModel} 的 NPU 模型和下载断点。")
-                    .setNegativeButton("取消", null)
-                    .setPositiveButton("删除") { _, _ -> startAsrOperation { store.remove() } }
-                    .show()
-                return@setOnClickListener
-            }
             MultilingualAsrCatalog.forId(AppSettings.asrModel)?.let { entry ->
-                AlertDialog.Builder(this).setTitle("删除 ${entry.title}？")
-                    .setMessage("仅删除此语音模型和下载断点。")
-                    .setNegativeButton("取消", null)
-                    .setPositiveButton("删除") { _, _ ->
-                        startAsrOperation {
-                            entry.files.forEach { ModelDownloader(this, it).deleteModel() }
-                        }
-                    }.show()
+                val npu = selectedNpuPackage()
+                if (npu == null) confirmAsrRemoval(entry, null)
+                else AlertDialog.Builder(this).setTitle("选择要删除的语音模型")
+                    .setItems(arrayOf("骁龙 NPU · ${npu.chip}", "CPU 备用模型")) { _, index ->
+                        confirmAsrRemoval(entry, npu.takeIf { index == 0 })
+                    }
+                    .show()
                 return@setOnClickListener
             }
             if (AppSettings.asrModel == AppSettings.ASR_MODEL_GIGAAM) {
@@ -346,7 +343,8 @@ class SettingsActivity : AppCompatActivity() {
         if (entry != null) {
             binding.etAsrUrl.visibility = View.GONE
             binding.tvAsrHint.text = when {
-                selectedQnnStore() != null -> "骁龙专用模型暂无已核验的魔搭 / HF 同文件。使用国内可访问的镜像，校验上游 SHA-256。"
+                entry.directory == MultilingualAsrCatalog.NEMOTRON && selectedNpuPackage() != null ->
+                    "骁龙模型使用国内镜像并核对上游 SHA-256。CPU 备用模型使用 HF Mirror 优先。"
                 entry.hasModelScope -> "魔搭 ModelScope 优先，失败切换 HF Mirror / Hugging Face。逐文件验证 SHA-256，支持暂停续传。"
                 else -> "此版本暂无已核验的魔搭同权重。优先使用 HF Mirror，失败切换 Hugging Face，逐文件校验 SHA-256。"
             }
@@ -368,20 +366,23 @@ class SettingsActivity : AppCompatActivity() {
         binding.tvAsrLanguageLabel.visibility = languageVisibility
         binding.spinnerAsrLanguage.visibility = languageVisibility
         binding.btnImportAsr.visibility = if (entry == null) View.VISIBLE else View.GONE
-        binding.switchAsrQnn.visibility = if (availableQnnStore() == null) View.GONE else View.VISIBLE
+        val npu = selectedNpuPackage()
+        binding.btnDownloadAsrCpu.visibility = if (npu == null) View.GONE else View.VISIBLE
         if (entry != null) {
             renderedAsr = AppSettings.asrModel
-            val qnnStore = selectedQnnStore()
-            binding.btnImportAsrFolder.visibility = if (qnnStore == null) View.VISIBLE else View.GONE
-            binding.btnImportAsrFolder.text = "导入已解压模型文件夹"
-            if (qnnStore != null) {
-                binding.btnDownloadAsr.text = "下载 / 继续下载 Nemotron NPU 模型"
-                binding.tvAsrStatus.text = if (qnnStore.installed()) "已核验安装 · ${qnnStore.socModel} · 返回主页验证 NPU"
-                    else "尚未安装 · ${qnnStore.socModel} 专用 NPU 模型约 443 MB"
+            binding.btnImportAsrFolder.visibility = View.VISIBLE
+            binding.btnImportAsrFolder.text = "导入已解压 CPU 模型文件夹"
+            val cpuReady = entry.files.all { ModelDownloader(this, it).installed() }
+            if (npu != null) {
+                binding.btnDownloadAsr.text = "下载 / 继续下载骁龙 NPU 模型"
+                binding.btnDownloadAsrCpu.text = "下载 / 继续下载 CPU 备用模型（${entry.sizeLabel}）"
+                val npuStatus = if (npu.installed) "NPU 模型已安装，启动时自动加载"
+                    else "可下载 NPU 模型 · ${npu.size}"
+                val cpuStatus = if (cpuReady) "CPU 备用已就绪" else "CPU 备用未安装"
+                binding.tvAsrStatus.text = "${npu.chip} · $npuStatus\n$cpuStatus"
             } else {
                 binding.btnDownloadAsr.text = "下载 / 继续下载 ${entry.title}"
-                val ready = entry.files.all { ModelDownloader(this, it).installed() }
-                binding.tvAsrStatus.text = if (ready) "已核验安装 · ASR CPU"
+                binding.tvAsrStatus.text = if (cpuReady) "已核验安装 · ASR CPU"
                     else "尚未安装完整模型 · ${entry.sizeLabel}"
             }
             refreshAsrSource()
@@ -416,9 +417,39 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
+    private fun downloadCpuAsr(entry: MultilingualAsrCatalog.Entry) {
+        startAsrOperation(isDownload = true) {
+            var completed = 0L
+            for (file in entry.files) {
+                val downloader = ModelDownloader(this, file)
+                if (!downloader.installed()) {
+                    downloader.download(entry.urls(file)) { p ->
+                        showAsrProgress(VoskArchiveInstaller.Progress(
+                            completed + p.received, entry.bytes, "${file.fileName} · ${p.stage}"))
+                    }
+                }
+                completed += file.bytes
+            }
+        }
+    }
+
+    private fun confirmAsrRemoval(entry: MultilingualAsrCatalog.Entry, npu: NpuPackage?) {
+        val backend = if (npu == null) "CPU" else "NPU · ${npu.chip}"
+        AlertDialog.Builder(this).setTitle("删除 ${entry.title} · $backend？")
+            .setMessage("仅删除所选语音模型和下载断点。")
+            .setNegativeButton("取消", null)
+            .setPositiveButton("删除") { _, _ ->
+                startAsrOperation {
+                    if (npu != null) npu.remove()
+                    else entry.files.forEach { ModelDownloader(this, it).deleteModel() }
+                }
+            }.show()
+    }
+
     private fun startAsrOperation(isDownload: Boolean = false, action: suspend () -> Unit) {
         if (busy) return
         asrDownloading = isDownload
+        if (isDownload) showAsrProgress(VoskArchiveInstaller.Progress(0, 0, "正在准备下载语音模型"))
         setBusy(true)
         operationJob = uiScope.launch {
             try { action(); refreshAsrUi() }
@@ -433,10 +464,14 @@ class SettingsActivity : AppCompatActivity() {
     }
     private fun showAsrProgress(p: VoskArchiveInstaller.Progress) = runOnUiThread {
         if (!isDestroyed && !isFinishing) {
-            val ratio = if (p.total > 0) (p.bytes * 100 / p.total).toInt().coerceIn(0, 100) else 0
-            binding.progressAsr.progress = ratio
-            binding.tvAsrStatus.text = p.stage + " · " + (p.bytes / 1024 / 1024) + " MiB" +
-                if (p.total > 0) " · " + ratio + "%" else ""
+            binding.progressAsr.isIndeterminate = p.total <= 0
+            binding.tvAsrStatus.text = if (p.total > 0) {
+                val ratio = (p.bytes * 100 / p.total).toInt().coerceIn(0, 100)
+                binding.progressAsr.progress = ratio
+                val current = Formatter.formatFileSize(this, p.bytes)
+                val total = Formatter.formatFileSize(this, p.total)
+                "${p.stage}\n$current / $total · $ratio%"
+            } else p.stage
         }
     }
     private fun refreshModelUi() {
@@ -510,7 +545,7 @@ class SettingsActivity : AppCompatActivity() {
         listOf(binding.btnDownloadModel, binding.btnImportModel, binding.btnRemoveModel,
             binding.spinnerModelSource, binding.etModelUrl, binding.rbGemma4, binding.rbLmt, hyMtButton,
             binding.rbAsrSmall, binding.rbAsrLarge, binding.rbAsrGigaam, binding.rbAsrNemotron,
-            binding.rbAsrQwen, binding.spinnerAsrSource, binding.spinnerAsrLanguage, binding.switchAsrQnn,
+            binding.rbAsrQwen, binding.spinnerAsrSource, binding.spinnerAsrLanguage, binding.btnDownloadAsrCpu,
             binding.etAsrUrl, binding.btnDownloadAsr, binding.btnImportAsr,
             binding.btnImportAsrFolder, binding.btnRemoveAsr
             ).forEach { it.isEnabled = !value }

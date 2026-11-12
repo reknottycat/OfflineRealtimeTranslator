@@ -49,6 +49,7 @@ class NemotronQnnModelStore private constructor(
                     progress(ModelDownloader.Progress(it.received, it.expected, it.stage))
                 }
                 extractVerifiedArchive(progress)
+                progress(ModelDownloader.Progress(0, 0, "正在安装 Nemotron QNN 模型"))
                 FileOutputStream(File(staging, RECEIPT_NAME)).use { output ->
                     output.write(receiptText(staging).toByteArray(Charsets.UTF_8))
                     output.fd.sync()
@@ -89,6 +90,7 @@ class NemotronQnnModelStore private constructor(
         var entries = 0
         var declaredBytes = 0L
         val buffer = ByteArray(256 * 1024)
+        progress(ModelDownloader.Progress(0, 0, "正在读取 Nemotron QNN 压缩包"))
         archive.inputStream().buffered().use { input ->
             TarArchiveInputStream(BZip2CompressorInputStream(input)).use { tar ->
                 while (true) {
@@ -106,18 +108,27 @@ class NemotronQnnModelStore private constructor(
                         "Nemotron 压缩包中的 $name 不符合发布结构"
                     }
                     check(staging.usableSpace >= entry.size + STORAGE_MARGIN_BYTES) { "存储空间不足，已保留下载进度" }
-                    progress(ModelDownloader.Progress(spec.bytes, spec.bytes, "解压 Nemotron QNN · $name"))
+                    val stage = "正在解压 Nemotron QNN（${seen.size}/${REQUIRED_FILES.size}） · $name"
+                    progress(ModelDownloader.Progress(0, entry.size, stage))
                     FileOutputStream(File(staging, name)).use { output ->
                         var remaining = entry.size
+                        var lastProgressNanos = System.nanoTime()
                         while (remaining > 0) {
                             currentCoroutineContext().ensureActive()
                             val count = tar.read(buffer, 0, minOf(remaining, buffer.size.toLong()).toInt())
                             check(count > 0) { "Nemotron 压缩包中的 $name 不完整" }
                             output.write(buffer, 0, count)
                             remaining -= count
+                            val now = System.nanoTime()
+                            if (remaining > 0 && now - lastProgressNanos >= PROGRESS_INTERVAL_NANOS) {
+                                progress(ModelDownloader.Progress(entry.size - remaining, entry.size, stage))
+                                lastProgressNanos = now
+                            }
                         }
+                        currentCoroutineContext().ensureActive()
                         output.fd.sync()
                     }
+                    progress(ModelDownloader.Progress(entry.size, entry.size, stage))
                 }
             }
         }
@@ -131,6 +142,7 @@ class NemotronQnnModelStore private constructor(
         private const val MAX_ENTRIES = 64
         private const val MAX_EXPANDED_BYTES = 1024L * 1024 * 1024
         private const val STORAGE_MARGIN_BYTES = 32L * 1024 * 1024
+        private const val PROGRESS_INTERVAL_NANOS = 100_000_000L
         private val REQUIRED_FILES = setOf("encoder.bin", "decoder.bin", "joiner.bin", "tokens.txt")
         private val PROXY_PREFIXES = listOf("https://gh-proxy.org/", "https://ghproxy.imciel.com/")
         private val installLock = Mutex()
@@ -142,7 +154,7 @@ class NemotronQnnModelStore private constructor(
 
         fun forCurrentDevice(context: Context): NemotronQnnModelStore? {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || "arm64-v8a" !in Build.SUPPORTED_64_BIT_ABIS) return null
-            val soc = Build.SOC_MODEL.trim().uppercase(Locale.ROOT)
+            val soc = QnnNemotronAsrEngine.chipset() ?: return null
             return specs[soc]?.let { NemotronQnnModelStore(context, soc, it) }
         }
 

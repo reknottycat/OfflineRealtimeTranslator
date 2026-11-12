@@ -14,7 +14,6 @@ import android.os.Messenger
 import android.os.RemoteException
 import com.bohanli.ruzhtranslator.BuildConfig
 import java.io.File
-import java.util.Locale
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -36,8 +35,7 @@ class QnnNemotronAsrEngine(
 
         fun chipset(): String? {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return null
-            val model = Build.SOC_MODEL.trim().uppercase(Locale.ROOT).substringBefore('-')
-            return model.takeIf { it == "SM8750" || it == "SM8850" }
+            return AsrAccelerationPolicy.chipset(Build.VERSION.SDK_INT, Build.SOC_MODEL)
         }
 
         fun isRuntimePresent(context: Context): Boolean = runtimeDirectory(context) != null

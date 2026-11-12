@@ -42,7 +42,10 @@ class MultilingualAsrManager(
     private val onFinalResult: (String, String) -> Unit,
     private val onError: (String) -> Unit,
     private val onIdle: () -> Unit = {},
-    private val onlineRecognizerFactory: (() -> OnlineRecognizer)? = null
+    private val onlineRecognizerFactory: (() -> OnlineRecognizer)? = null,
+    private val qwenNpu: QwenNpuAsrEngine? = null,
+    private val cpuQwenAvailable: Boolean = false,
+    private val onCpuFallback: () -> Unit = {}
 ) : AsrEngine {
     private companion object {
         const val TAG = "MultilingualAsr"
@@ -50,6 +53,7 @@ class MultilingualAsrManager(
         const val BLOCK_SAMPLES = SAMPLE_RATE / 10
         const val QUEUE_BLOCKS = 60
         const val QWEN_MAX_SAMPLES = SAMPLE_RATE * 12
+        const val QWEN_NPU_MAX_SAMPLES = SAMPLE_RATE * 5
         const val QWEN_END_SILENCE = SAMPLE_RATE * 7 / 10
         const val QWEN_MIN_SPEECH = SAMPLE_RATE / 10
     }
@@ -62,6 +66,7 @@ class MultilingualAsrManager(
     @Volatile private var activeSession: Job? = null
     private var online: OnlineRecognizer? = null
     private var offline: OfflineRecognizer? = null
+    @Volatile private var qwenNpuReady = false
 
     override suspend fun initialize(): Unit = withContext(Dispatchers.IO) {
         require(language in setOf("auto", "ru", "zh", "en")) { "不支持的语音输入语种" }
@@ -77,6 +82,14 @@ class MultilingualAsrManager(
                 }
             }
             MultilingualAsrCatalog.QWEN -> {
+                if (qwenNpu != null) {
+                    qwenNpu.initialize()
+                    synchronized(lifecycle) {
+                        check(!released && !qwenNpuReady) { "语音识别引擎已关闭或重复初始化" }
+                        qwenNpuReady = true
+                    }
+                    return@withContext
+                }
                 val next = createQwen()
                 synchronized(lifecycle) {
                     if (released || online != null || offline != null) {
@@ -139,7 +152,7 @@ class MultilingualAsrManager(
     override fun startListening() {
         synchronized(lifecycle) {
             if (released) return
-            if (online == null && offline == null) {
+            if (online == null && offline == null && !qwenNpuReady) {
                 scope.launch(Dispatchers.Main) { if (!released) onError("语音识别模型未就绪") }
                 return
             }
@@ -185,6 +198,7 @@ class MultilingualAsrManager(
                 job?.join()
                 online?.release()
                 offline?.release()
+                qwenNpu?.release()
             } finally {
                 scope.cancel()
             }
@@ -226,7 +240,7 @@ class MultilingualAsrManager(
                     if (recognizer != null) {
                         recognizeOnline(recognizer, audio)
                     } else {
-                        recognizeQwen(checkNotNull(offline), audio)
+                        recognizeQwen(audio)
                     }
                 } finally {
                     stopListening()
@@ -295,8 +309,8 @@ class MultilingualAsrManager(
         }
     }
 
-    private suspend fun recognizeQwen(recognizer: OfflineRecognizer, audio: Channel<FloatArray>) {
-        val utterance = FloatArray(QWEN_MAX_SAMPLES)
+    private suspend fun recognizeQwen(audio: Channel<FloatArray>) {
+        val utterance = FloatArray(if (qwenNpuReady) QWEN_NPU_MAX_SAMPLES else QWEN_MAX_SAMPLES)
         var used = 0
         var voicedSamples = 0
         var trailingSilence = 0
@@ -304,22 +318,9 @@ class MultilingualAsrManager(
 
         suspend fun flush() {
             if (!released && voicedSamples >= QWEN_MIN_SPEECH) {
-                val stream = recognizer.createStream()
-                val result = try {
-                    val hint = when (language) {
-                        "ru" -> "Russian"
-                        "zh" -> "Chinese"
-                        "en" -> "English"
-                        else -> ""
-                    }
-                    if (hint.isNotEmpty()) stream.setOption("language", hint)
-                    stream.acceptWaveform(utterance.copyOf(used), SAMPLE_RATE)
-                    recognizer.decode(stream)
-                    recognizer.getResult(stream)
-                } finally {
-                    stream.release()
-                }
-                emitFinal(result.text.trim(), result.lang.ifBlank { selectedLanguage() })
+                val samples = utterance.copyOf(used)
+                val result = transcribeQwen(samples)
+                emitFinal(result.text.trim(), result.language.ifBlank { selectedLanguage() })
             }
             used = 0
             voicedSamples = 0
@@ -357,6 +358,40 @@ class MultilingualAsrManager(
             }
         }
         if (!released) flush()
+    }
+
+    private suspend fun transcribeQwen(samples: FloatArray): QwenNpuTranscript {
+        if (qwenNpuReady && qwenNpu != null) {
+            try {
+                return qwenNpu.transcribe(samples, language)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                Log.w(TAG, "Qwen NPU inference failed", failure)
+                qwenNpuReady = false
+                qwenNpu.release()
+                check(cpuQwenAvailable) { "千问 NPU 运行失败，请在设置下载 CPU 备用模型" }
+                offline = createQwen()
+                withContext(Dispatchers.Main) { if (!released) onCpuFallback() }
+            }
+        }
+        val recognizer = checkNotNull(offline) { "千问 CPU 模型未就绪" }
+        val stream = recognizer.createStream()
+        return try {
+            val hint = when (language) {
+                "ru" -> "Russian"
+                "zh" -> "Chinese"
+                "en" -> "English"
+                else -> ""
+            }
+            if (hint.isNotEmpty()) stream.setOption("language", hint)
+            stream.acceptWaveform(samples, SAMPLE_RATE)
+            recognizer.decode(stream)
+            val result = recognizer.getResult(stream)
+            QwenNpuTranscript(result.text, result.lang)
+        } finally {
+            stream.release()
+        }
     }
 
     private fun selectedLanguage(): String = language.takeUnless { it == "auto" }.orEmpty()
