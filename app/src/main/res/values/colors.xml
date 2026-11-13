@@ -5,10 +5,9 @@
     <color name="teal_200">#FFB6DACF</color>
     <color name="teal_700">#FF19A582</color>
     <color name="black">#FF141414</color>
-    <color name="white">#FFFFFFFF</color>
+
     <color name="ui_ink">#FFF4F4F4</color>
-    <color name="ui_muted">#FFA4A5A6</color>
-    <color name="ui_accent">#FF19C59A</color>
+
     <color name="ui_background">#FF141414</color>
     <color name="ui_surface">#FF222323</color>
 </resources>

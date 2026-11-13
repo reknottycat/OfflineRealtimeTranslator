@@ -1,28 +1,14 @@
 <resources>
     <string name="app_name">RU-ZH 实时同传</string>
-    <string name="status_loading">正在加载模型...</string>
-    <string name="status_ready">就绪</string>
-    <string name="status_listening">正在监听</string>
-    <string name="status_translating">正在翻译</string>
-    <string name="label_russian">俄语识别</string>
-    <string name="label_chinese">中文翻译</string>
+    <string name="status_loading">正在加载模型…</string>
+
     <string name="btn_start">开始监听</string>
-    <string name="btn_stop">停止监听</string>
-    <string name="hint_russian">Ожидание голосового ввода...</string>
-    <string name="hint_chinese">翻译结果将显示在此处...</string>
+
     <string name="permission_denied">需要麦克风权限才能使用语音识别</string>
     <string name="btn_pause">暂停</string>
-    <string name="btn_resume">继续</string>
+
     <string name="settings_title">设置</string>
-    <string name="status_paused">[暂停] 已暂停，点击继续</string>
-    <string name="switch_large_model">切换大模型</string>
-    <string name="switch_small_model">切换小模型</string>
-    <string name="model_switched">已切换到 %s</string>
-    <string name="model_management">模型管理</string>
-    <string name="model_management_desc">下载和管理语音识别及翻译模型</string>
-    <string name="default_model_title">默认模型选择</string>
-    <string name="default_model_desc">选择每次打开应用时默认加载的模型</string>
-    <string name="about">关于</string>
+
     <string name="scroll_to_bottom">滚动到底部</string>
     <string name="history_title">翻译历史</string>
     <string name="favorites_title">收藏</string>
@@ -33,9 +19,9 @@
     <string name="copy">复制</string>
     <string name="multi_select">多选</string>
     <string name="delete_selected">删除选中</string>
-    <string name="select_all">全选</string>
+
     <string name="no_history">暂无记录</string>
-    <string name="cleanup_label">清理:</string>
+
     <string name="export_success">已导出到 Download 文件夹</string>
     <string name="export_empty">没有可导出的记录</string>
     <string name="delete_confirm">确认删除 %d 条记录？</string>
@@ -63,13 +49,86 @@
     </string-array>
 
     <!-- Settings: ASR model selection -->
-    <string name="asr_model_title">语音识别模型</string>
-    <string name="asr_model_desc">选择并下载俄语 Small 或 Large；已安装模型返回主界面后自动切换。</string>
-    <string name="asr_model_small">Vosk Small 0.22 — 约 45 MB 下载，手机推荐</string>
-    <string name="asr_model_large">Vosk Large 0.42 — 约 1.8 GB 下载，服务器级内存需求（慎选）</string>
-    <string name="asr_changed_toast">ASR 模型已切换，返回主界面自动加载</string>
+
 
     <!-- Settings: output-language drift mitigation -->
     <string name="drift_retry_title">翻译漂移检测</string>
     <string name="drift_retry_desc">译文非中文时自动重试一次</string>
+
+    <!-- Labels used by the main and settings screens. -->
+    <string name="ui_language_badge">"RU"</string>
+    <string name="ui_main_title">"同声传译"</string>
+    <string name="ui_offline_caption">"离线运行  ·  RU → ZH"</string>
+    <string name="ui_history_caption">"字幕自动保存到历史记录"</string>
+    <string name="ui_russian_label">"俄语原文"</string>
+    <string name="ui_follow_label">"● 自动跟随"</string>
+    <string name="ui_follow_russian_description">"切换俄文字幕自动跟随"</string>
+    <string name="ui_russian_placeholder">"说话后，俄语字幕会实时显示在这里"</string>
+    <string name="ui_chinese_label">"中文译文"</string>
+    <string name="ui_follow_chinese_description">"切换中文译文自动跟随"</string>
+    <string name="ui_chinese_placeholder">"翻译内容将在这里逐句生成"</string>
+    <string name="ui_start_listening">"开始聆听"</string>
+    <string name="ui_privacy_caption">"语音在本机处理 · 字幕自动保存"</string>
+    <string name="ui_settings_heading">"设置"</string>
+    <string name="ui_local_first">"LOCAL FIRST"</string>
+    <string name="ui_models_heading">"模型与偏好"</string>
+    <string name="ui_models_intro">"先选语音识别，再选中文翻译。所有模型下载后均可离线运行。"</string>
+    <string name="ui_asr_section">"01  ·  语音识别"</string>
+    <string name="ui_asr_intro">"选择本地语音识别模型。只安装识别模型也能使用实时字幕。"</string>
+    <string name="ui_vosk_small_option">"Vosk Small  ·  轻量入门"</string>
+    <string name="ui_vosk_large_option">"Vosk Large  ·  高内存设备"</string>
+    <string name="ui_gigaam_option">"GigaAM v2  ·  236 MB INT8"</string>
+    <string name="ui_nemotron_option">"Nemotron 3.5 0.6B · 流式"</string>
+    <string name="ui_qwen_asr_option">"千问 Qwen3-ASR 0.6B · 分段"</string>
+    <string name="ui_input_language">"输入语言"</string>
+    <string name="ui_download_source">"模型下载来源"</string>
+    <string name="ui_asr_url_hint">"HTTPS 模型地址（可选）"</string>
+    <string name="ui_asr_download">"下载或继续下载语音模型"</string>
+    <string name="ui_cpu_fallback_download">"下载 CPU 备用模型"</string>
+    <string name="ui_asr_pause">"暂停语音模型下载"</string>
+    <string name="ui_model_import">"导入模型文件"</string>
+    <string name="ui_model_delete">"删除所选模型"</string>
+    <string name="ui_vosk_import_folder">"导入已解压 Vosk 文件夹"</string>
+    <string name="ui_vosk_large_note">"Vosk Large 下载 ZIP 约 1.84 GB，解压后约 3.5–3.7 GB。请选择相应的 ZIP 或文件夹导入方式。"</string>
+    <string name="ui_translation_section">"02  ·  翻译引擎"</string>
+    <string name="ui_translation_intro">"将识别结果翻译为简体中文。HY-MT2 支持多语输入，Gemma / LMT 保留俄语到中文。"</string>
+    <string name="ui_gemma_option">"Gemma 4 E2B  ·  LiteRT-LM"</string>
+    <string name="ui_lmt_option">"NiuTrans LMT  ·  llama.cpp"</string>
+    <string name="ui_backend_label">"计算后端"</string>
+    <string name="ui_backend_auto">"自动：优先 GPU，失败回退 CPU"</string>
+    <string name="ui_backend_gpu">"优先 GPU"</string>
+    <string name="ui_backend_cpu">"仅 CPU"</string>
+    <string name="ui_download_section">"03  ·  翻译模型下载"</string>
+    <string name="ui_download_intro">"下载与当前所选翻译引擎对应的权重。模型只在设备本地使用。"</string>
+    <string name="ui_translation_url_hint">"HTTPS 模型直链（可选）"</string>
+    <string name="ui_translation_download">"下载或继续下载翻译模型"</string>
+    <string name="ui_translation_pause">"暂停下载，保留断点"</string>
+    <string name="ui_translation_import">"从文件导入"</string>
+    <string name="ui_download_note">"支持分块下载、失败换源与断点续传；完整文件校验成功后才会安装。下载时保持当前页面打开。"</string>
+    <string name="ui_preferences_section">"04  ·  识别与翻译偏好"</string>
+    <string name="ui_preferences_intro">"让实时字幕更稳定，保持翻译结果符合目标语言。"</string>
+
+    <!-- Dynamic labels and descriptions. -->
+    <string name="asr_brand">ASR</string>
+    <string name="asr_direction">离线运行 · %1$s输入</string>
+    <string name="engine_status">%1$s · %2$s</string>
+    <string name="selected_count">%1$s/%2$s</string>
+    <string name="tab_with_count">%1$s (%2$s)</string>
+    <string name="history_detail">%1$s\n\n[俄语]\n%2$s\n\n[中文]\n%3$s</string>
+    <string name="settings_version">v%1$s · 离线多语语音识别</string>
+    <string name="import_cpu_folder">导入已解压 CPU 模型文件夹</string>
+    <string name="download_npu">下载 / 继续下载骁龙 NPU 模型</string>
+    <string name="download_cpu_fallback">下载 / 继续下载 CPU 备用模型（%1$s）</string>
+    <string name="npu_and_cpu_status">%1$s · %2$s\n%3$s</string>
+    <string name="download_named_model">下载 / 继续下载 %1$s</string>
+    <string name="import_gigaam">导入 GigaAM ONNX</string>
+    <string name="download_gigaam">下载 / 继续下载 GigaAM v2 俄语 INT8（236 MB）</string>
+    <string name="import_vosk_zip">导入 Vosk ZIP</string>
+    <string name="asr_operation_error">语音模型操作失败：%1$s</string>
+    <string name="model_description">%1$s · %2$s\n%3$s\n%4$s固定版本与 SHA-256。</string>
+    <string name="model_operation_error">操作未完成：%1$s</string>
+    <string name="model_progress">%1$s · %2$s MiB</string>
+    <string name="model_progress_percent">%1$s · %2$s MiB · %3$s%%</string>
+    <string name="favorite_add">收藏</string>
+    <string name="favorite_remove">取消收藏</string>
 </resources>

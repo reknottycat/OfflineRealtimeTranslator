@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.content.pm.PackageManager
-import android.graphics.Color
 import android.os.Bundle
 import android.text.SpannableStringBuilder
 import android.text.Spanned
@@ -13,6 +12,7 @@ import android.util.Log
 import android.view.View
 import android.view.MotionEvent
 import android.widget.ScrollView
+import androidx.core.graphics.toColorInt
 import androidx.appcompat.app.AlertDialog
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -63,10 +63,10 @@ class MainActivity : AppCompatActivity() {
         // Subtle matched source/translation colors replace the distracting
         // 16-color rainbow. Preserve visual alignment without overwhelming text.
         private val SEGMENT_COLORS = intArrayOf(
-            Color.parseColor("#FFE7E8E7"),
-            Color.parseColor("#FFC4D9D1"),
-            Color.parseColor("#FFD1D7E0"),
-            Color.parseColor("#FFE0D5C7")
+            "#FFE7E8E7".toColorInt(),
+            "#FFC4D9D1".toColorInt(),
+            "#FFD1D7E0".toColorInt(),
+            "#FFE0D5C7".toColorInt()
         )
     }
     private lateinit var binding: ActivityMainBinding
@@ -155,8 +155,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupUi() {
         if (multilingualAsr != null) {
-            binding.tvAsrBrand.text = "ASR"
-            binding.tvAsrDirection.text = "离线运行 · ${sourceLabel}输入"
+            binding.tvAsrBrand.setText(R.string.asr_brand)
+            binding.tvAsrDirection.text = getString(R.string.asr_direction, sourceLabel)
             binding.tvAsrTranscriptTitle.text = "语音原文"
             binding.tvRussianHistory.hint = "说话后，识别结果会实时显示在这里"
         }
@@ -228,15 +228,13 @@ class MainActivity : AppCompatActivity() {
     private fun setRussianFollow(enabled: Boolean) {
         autoScrollRussian = enabled
         binding.tvFollowRu.text = if (enabled) "● 自动跟随" else "回到最新"
-        binding.tvFollowRu.setTextColor(Color.parseColor(
-            if (enabled) "#FFB9D7CC" else "#FFF0F0F0"))
+        binding.tvFollowRu.setTextColor((if (enabled) "#FFB9D7CC" else "#FFF0F0F0").toColorInt())
         binding.btnScrollBottomRu.visibility = if (enabled) View.GONE else View.VISIBLE
     }
     private fun setChineseFollow(enabled: Boolean) {
         autoScrollChinese = enabled
         binding.tvFollowZh.text = if (enabled) "● 自动跟随" else "回到最新"
-        binding.tvFollowZh.setTextColor(Color.parseColor(
-            if (enabled) "#FFB9D7CC" else "#FFF0F0F0"))
+        binding.tvFollowZh.setTextColor((if (enabled) "#FFB9D7CC" else "#FFF0F0F0").toColorInt())
         binding.btnScrollBottomZh.visibility = if (enabled) View.GONE else View.VISIBLE
     }
     private fun scrollRussianToLatest() {
@@ -716,9 +714,8 @@ class MainActivity : AppCompatActivity() {
                 AppSettings.ASR_MODEL_LARGE -> "Vosk Large 俄语识别"
                 else -> "Vosk Small 俄语识别"
             }
-            binding.tvStatus.text = engineTitle + " · " + status.toDisplayString()
-            binding.tvStatus.setTextColor(Color.parseColor(
-                if (status is AppStatus.Error) "#FFE8A6A2" else "#FFDFE2E0"))
+            binding.tvStatus.text = getString(R.string.engine_status, engineTitle, status.toDisplayString())
+            binding.tvStatus.setTextColor((if (status is AppStatus.Error) "#FFE8A6A2" else "#FFDFE2E0").toColorInt())
             updateComposerDock(status)
         }
     }
@@ -743,7 +740,7 @@ class MainActivity : AppCompatActivity() {
             else -> "${sourceLabel}识别 + 中文翻译 · 全部本地处理"
         }
         binding.btnStartStop.imageTintList = ColorStateList.valueOf(
-            Color.parseColor(if (busy) "#FFFFFFFF" else "#FF10201B"))
+            (if (busy) "#FFFFFFFF" else "#FF10201B").toColorInt())
         binding.btnStartStop.contentDescription =
             if (busy) "停止监听并保存字幕" else "开始监听"
         binding.btnPauseResume.contentDescription =
@@ -763,7 +760,7 @@ class MainActivity : AppCompatActivity() {
         if (partial.isNotEmpty()) {
             if (ssb.isNotEmpty()) ssb.append("\n")
             val start = ssb.length; ssb.append(partial)
-            ssb.setSpan(ForegroundColorSpan(Color.parseColor("#FF888888")), start, ssb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            ssb.setSpan(ForegroundColorSpan("#FF888888".toColorInt()), start, ssb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
         binding.tvRussianHistory.text = ssb
         scrollRussianToLatest()

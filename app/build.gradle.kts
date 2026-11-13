@@ -4,7 +4,7 @@ plugins {
 }
 
 val enableQnn = providers.gradleProperty("enableQnn").map(String::toBooleanStrict).orElse(false).get()
-val liteRtVersion = "2.3.0"
+val liteRtVersion = libs.versions.liteRt.get()
 val qwenNpuAssets = layout.buildDirectory.dir("generated/qwenNpuAssets")
 
 android {
@@ -108,32 +108,31 @@ if (enableQnn) {
 
 dependencies {
     implementation(libs.androidx.core.ktx)
-    implementation("androidx.documentfile:documentfile:1.0.1")
+    implementation(libs.androidx.documentfile)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
     implementation(libs.androidx.constraintlayout)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.vosk.android)
-    implementation("org.apache.commons:commons-compress:1.28.0")
-    implementation("com.google.ai.edge.litert:litert-api:$liteRtVersion")
+    implementation(libs.commons.compress)
+    implementation(libs.litert.api)
     // Download and verify the selected native dependencies with scripts/setup_sherpa_aar.py.
     if (enableQnn) {
         implementation(files("libs/sherpa-onnx-2.0.1-1-qnn.aar"))
         // The QNN Sherpa binary requires this newer ORT ABI. Its Java API also serves recasepunc.
         implementation(files("libs/onnxruntime-1.28.1-xdcobra.aar"))
         implementation(files("libs/qnn-runtime-2.40.0.aar"))
-        implementation("com.google.ai.edge.litert:litert:$liteRtVersion")
+        implementation(libs.litert.core)
     } else {
         // Sherpa carries its own statically linked ORT, so recasepunc keeps its matching Java/ELF pair.
         implementation(files("libs/sherpa-onnx-static-link-onnxruntime-2.0.1.aar"))
         implementation(libs.onnxruntime.android)
     }
     // Gemma remains LiteRT-LM; the GGUF bridge owns distinct LMT/HY-MT2 profiles.
-    implementation("com.google.ai.edge.litertlm:litertlm-android:0.16.1")
-    val roomVersion = "2.7.1"
-    implementation("androidx.room:room-runtime:$roomVersion")
-    implementation("androidx.room:room-ktx:$roomVersion")
-    ksp("androidx.room:room-compiler:$roomVersion")
+    implementation(libs.litertlm.android)
+    implementation(libs.room.runtime)
+    implementation(libs.room.ktx)
+    ksp(libs.room.compiler)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

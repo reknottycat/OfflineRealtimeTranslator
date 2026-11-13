@@ -12,8 +12,21 @@ constraintlayout = "2.2.1"
 coroutines = "1.9.0"
 vosk = "0.3.47"
 onnxruntime = "1.17.3"
+documentfile = "1.0.1"
+commonsCompress = "1.28.0"
+liteRt = "2.3.0"
+liteRtLm = "0.16.1"
+room = "2.7.1"
 
 [libraries]
+androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }
+commons-compress = { group = "org.apache.commons", name = "commons-compress", version.ref = "commonsCompress" }
+litert-api = { group = "com.google.ai.edge.litert", name = "litert-api", version.ref = "liteRt" }
+litert-core = { group = "com.google.ai.edge.litert", name = "litert", version.ref = "liteRt" }
+litertlm-android = { group = "com.google.ai.edge.litertlm", name = "litertlm-android", version.ref = "liteRtLm" }
+room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
+room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }

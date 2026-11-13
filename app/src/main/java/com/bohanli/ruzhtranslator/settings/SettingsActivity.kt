@@ -8,6 +8,7 @@ import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.RadioGroup
 import android.widget.Toast
+import androidx.core.content.edit
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -139,7 +140,7 @@ class SettingsActivity : AppCompatActivity() {
                 bottomMargin = (7 * resources.displayMetrics.density).toInt()
             })
         binding.btnBack.setOnClickListener { finish() }
-        binding.tvVersion.text = "v${BuildConfig.VERSION_NAME} · 离线多语语音识别"
+        binding.tvVersion.text = getString(R.string.settings_version, BuildConfig.VERSION_NAME)
         binding.radioAsrModel.check(when (AppSettings.asrModel) {
             AppSettings.ASR_MODEL_GIGAAM -> binding.rbAsrGigaam.id
             AppSettings.ASR_MODEL_LARGE -> binding.rbAsrLarge.id
@@ -149,7 +150,7 @@ class SettingsActivity : AppCompatActivity() {
         })
         binding.radioAsrModel.setOnCheckedChangeListener { _, id ->
             if (busy) return@setOnCheckedChangeListener
-            customUrls.edit().putString("vosk:" + renderedAsr, binding.etAsrUrl.text.toString()).apply()
+            customUrls.edit { putString("vosk:" + renderedAsr, binding.etAsrUrl.text.toString()) }
             AppSettings.asrModel = when (id) {
                 binding.rbAsrGigaam.id -> AppSettings.ASR_MODEL_GIGAAM
                 binding.rbAsrLarge.id -> AppSettings.ASR_MODEL_LARGE
@@ -204,7 +205,7 @@ class SettingsActivity : AppCompatActivity() {
                         toast(e.message ?: "请检查 GigaAM 下载源")
                         return@setOnClickListener
                     }
-                customUrls.edit().putString("vosk:" + GigaAmCatalog.MODEL_ID, url).apply()
+                customUrls.edit { putString("vosk:" + GigaAmCatalog.MODEL_ID, url) }
                 startAsrOperation(isDownload = true) {
                     ModelDownloader(this, GigaAmCatalog.SPEC).download(urls) { p ->
                         showAsrProgress(VoskArchiveInstaller.Progress(p.received, p.expected, p.stage))
@@ -216,7 +217,7 @@ class SettingsActivity : AppCompatActivity() {
             val url = binding.etAsrUrl.text.toString()
             val urls = try { VoskModelCatalog.urls(spec, AppSettings.asrSource, url) }
                 catch (e: IllegalArgumentException) { toast(e.message ?: "请检查 Vosk 下载源"); return@setOnClickListener }
-            customUrls.edit().putString("vosk:" + spec.id, url).apply()
+            customUrls.edit { putString("vosk:" + spec.id, url) }
             val beginDownload = {
                 startAsrOperation(isDownload = true) {
                     VoskArchiveInstaller(this, spec).download(urls, ::showAsrProgress)
@@ -269,7 +270,7 @@ class SettingsActivity : AppCompatActivity() {
         }
         binding.radioTranslationEngine.setOnCheckedChangeListener { _, id ->
             if (!rendering && !busy) {
-                customUrls.edit().putString(renderedEngine, binding.etModelUrl.text.toString()).apply()
+                customUrls.edit { putString(renderedEngine, binding.etModelUrl.text.toString()) }
                 AppSettings.translationEngine = when (id) {
                     binding.rbLmt.id -> AppSettings.ENGINE_LMT
                     hyMtButton.id -> AppSettings.ENGINE_HYMT2
@@ -299,7 +300,7 @@ class SettingsActivity : AppCompatActivity() {
             if (AppSettings.modelSource == AppSettings.SOURCE_MODELSCOPE && hasOldCustom) {
                 AppSettings.modelSource = AppSettings.SOURCE_CUSTOM
             }
-            customUrls.edit().putBoolean("source_selection_migrated_v1", true).apply()
+            customUrls.edit { putBoolean("source_selection_migrated_v1", true) }
         }
         binding.spinnerModelSource.setSelection(sourceKeys.indexOf(AppSettings.modelSource).coerceAtLeast(0))
         binding.spinnerModelSource.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
@@ -317,7 +318,7 @@ class SettingsActivity : AppCompatActivity() {
             } catch (e: IllegalArgumentException) {
                 toast(e.message ?: "请检查下载来源"); return@setOnClickListener
             }
-            customUrls.edit().putString(spec.engine, binding.etModelUrl.text.toString()).apply()
+            customUrls.edit { putString(spec.engine, binding.etModelUrl.text.toString()) }
             startModelOperation(isDownload = true) { installer.download(urls, ::showProgress) }
         }
         binding.btnPauseModel.setOnClickListener { operationJob?.cancel() }
@@ -371,17 +372,17 @@ class SettingsActivity : AppCompatActivity() {
         if (entry != null) {
             renderedAsr = AppSettings.asrModel
             binding.btnImportAsrFolder.visibility = View.VISIBLE
-            binding.btnImportAsrFolder.text = "导入已解压 CPU 模型文件夹"
+            binding.btnImportAsrFolder.text = getString(R.string.import_cpu_folder)
             val cpuReady = entry.files.all { ModelDownloader(this, it).installed() }
             if (npu != null) {
-                binding.btnDownloadAsr.text = "下载 / 继续下载骁龙 NPU 模型"
-                binding.btnDownloadAsrCpu.text = "下载 / 继续下载 CPU 备用模型（${entry.sizeLabel}）"
+                binding.btnDownloadAsr.text = getString(R.string.download_npu)
+                binding.btnDownloadAsrCpu.text = getString(R.string.download_cpu_fallback, entry.sizeLabel)
                 val npuStatus = if (npu.installed) "NPU 模型已安装，启动时自动加载"
                     else "可下载 NPU 模型 · ${npu.size}"
                 val cpuStatus = if (cpuReady) "CPU 备用已就绪" else "CPU 备用未安装"
-                binding.tvAsrStatus.text = "${npu.chip} · $npuStatus\n$cpuStatus"
+                binding.tvAsrStatus.text = getString(R.string.npu_and_cpu_status, npu.chip, npuStatus, cpuStatus)
             } else {
-                binding.btnDownloadAsr.text = "下载 / 继续下载 ${entry.title}"
+                binding.btnDownloadAsr.text = getString(R.string.download_named_model, entry.title)
                 binding.tvAsrStatus.text = if (cpuReady) "已核验安装 · ASR CPU"
                     else "尚未安装完整模型 · ${entry.sizeLabel}"
             }
@@ -391,9 +392,9 @@ class SettingsActivity : AppCompatActivity() {
         if (AppSettings.asrModel == AppSettings.ASR_MODEL_GIGAAM) {
             renderedAsr = GigaAmCatalog.MODEL_ID
             binding.etAsrUrl.setText(customUrls.getString("vosk:" + renderedAsr, ""))
-            binding.btnImportAsr.text = "导入 GigaAM ONNX"
+            binding.btnImportAsr.text = getString(R.string.import_gigaam)
             binding.btnImportAsrFolder.visibility = View.GONE
-            binding.btnDownloadAsr.text = "下载 / 继续下载 GigaAM v2 俄语 INT8（236 MB）"
+            binding.btnDownloadAsr.text = getString(R.string.download_gigaam)
             refreshAsrSource()
             binding.tvAsrStatus.text = if (ModelDownloader(this, GigaAmCatalog.SPEC).installed())
                 "ONNX 已核验安装 · 返回主页将启动 sherpa-onnx CPU 语音识别"
@@ -401,13 +402,13 @@ class SettingsActivity : AppCompatActivity() {
             return
         }
         val spec = VoskModelCatalog.model(AppSettings.asrModel)
-        binding.btnImportAsr.text = "导入 Vosk ZIP"
+        binding.btnImportAsr.text = getString(R.string.import_vosk_zip)
         binding.btnImportAsrFolder.visibility = View.VISIBLE
-        binding.btnImportAsrFolder.text = "导入已解压 Vosk 文件夹"
+        binding.btnImportAsrFolder.text = getString(R.string.ui_vosk_import_folder)
         renderedAsr = spec.id
         binding.etAsrUrl.setText(customUrls.getString("vosk:" + spec.id, ""))
         refreshAsrSource()
-        binding.btnDownloadAsr.text = "下载 / 继续下载 " + spec.title
+        binding.btnDownloadAsr.text = getString(R.string.download_named_model, spec.title)
         val own = VoskArchiveInstaller(this, spec).installed()
         val legacy = if (!own) ModelManager.getModelDir(this, spec.id) != null else false
         binding.tvAsrStatus.text = when {
@@ -458,7 +459,7 @@ class SettingsActivity : AppCompatActivity() {
                     "已暂停 · 断点已保存，下次点击继续下载"
                 throw e
             }
-            catch (e: Exception) { binding.tvAsrStatus.text = "语音模型操作失败：" + e.message }
+            catch (e: Exception) { binding.tvAsrStatus.text = getString(R.string.asr_operation_error, e.message.toString()) }
             finally { asrDownloading = false; setBusy(false) }
         }
     }
@@ -497,7 +498,7 @@ class SettingsActivity : AppCompatActivity() {
             AppSettings.ENGINE_HYMT2 -> "腾讯官方 GGUF；独立 Hunyuan 模板与架构校验。"
             else -> "LiteRT-LM 权重。"
         }
-        binding.tvModelDescription.text = "${spec.title} · ${spec.sizeLabel}\n${spec.fileName}\n${origin}固定版本与 SHA-256。"
+        binding.tvModelDescription.text = getString(R.string.model_description, spec.title, spec.sizeLabel, spec.fileName, origin)
         binding.etModelUrl.setText(customUrls.getString(spec.engine, ""))
         refreshSourceUi()
         val shortName = when (spec.engine) {
@@ -505,7 +506,7 @@ class SettingsActivity : AppCompatActivity() {
             AppSettings.ENGINE_HYMT2 -> "HY-MT2"
             else -> "Gemma 4"
         }
-        binding.btnDownloadModel.text = "下载 / 继续下载 $shortName"
+        binding.btnDownloadModel.text = getString(R.string.download_named_model, shortName)
         binding.tvModelStatus.text = if (ModelDownloader(this, spec).installed()) "已校验安装 · 可离线使用"
             else "尚未校验安装 · 请选择来源下载或从本地导入"
         rendering = false
@@ -528,7 +529,7 @@ class SettingsActivity : AppCompatActivity() {
                 if (isDownload && !isDestroyed) binding.tvModelStatus.text = "已暂停 · 已完成分块已保存，点击继续下载可恢复"
                 throw e
             }
-            catch (e: Exception) { binding.tvModelStatus.text = "操作未完成：${e.message}" }
+            catch (e: Exception) { binding.tvModelStatus.text = getString(R.string.model_operation_error, e.message.toString()) }
             finally { setBusy(false); downloading = false }
         }
     }
@@ -537,7 +538,8 @@ class SettingsActivity : AppCompatActivity() {
             val percent = if (p.expected > 0L) (p.received * 100 / p.expected).toInt().coerceIn(0, 100) else 0
             binding.progressModel.isIndeterminate = p.expected <= 0L
             binding.progressModel.progress = percent
-            binding.tvModelStatus.text = "${p.stage} · ${p.received / (1024 * 1024)} MiB" + if (p.expected > 0L) " · $percent%" else ""
+            binding.tvModelStatus.text = if (p.expected > 0L) getString(R.string.model_progress_percent, p.stage, (p.received / (1024 * 1024)).toString(), percent.toString())
+                else getString(R.string.model_progress, p.stage, (p.received / (1024 * 1024)).toString())
         }
     }
     private fun setBusy(value: Boolean) {
