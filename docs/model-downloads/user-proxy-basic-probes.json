@@ -1,0 +1,66 @@
+[
+  {
+    "name": "gh-proxy.org",
+    "range": "bytes=0-63",
+    "url": "https://gh-proxy.org/https://huggingface.co/mradermacher/LMT-60-1.7B-GGUF/resolve/f03d51b43463d8a457eee1cd765220de69e9bac8/LMT-60-1.7B.Q4_K_M.gguf",
+    "status": 206,
+    "final_host": "gh-proxy.com",
+    "headers": {
+      "content-type": "text/html",
+      "content-length": "64",
+      "etag": "\"6ab20a7b-c3\"",
+      "content-range": "bytes 0-63/195"
+    },
+    "body_hex": "3c68746d6c3e0a202020203c686561643e3c7469746c653e5369746520556e617661696c61626c653c2f7469746c653e3c2f686561643e0a202020203c626f64",
+    "body_repr": "b'<html>\\n    <head><title>Site Unavailable</title></head>\\n    <bod'",
+    "seconds": 6.31
+  },
+  {
+    "name": "gh-proxy.org",
+    "range": null,
+    "url": "https://gh-proxy.org/https://huggingface.co/mradermacher/LMT-60-1.7B-GGUF/resolve/f03d51b43463d8a457eee1cd765220de69e9bac8/LMT-60-1.7B.Q4_K_M.gguf",
+    "status": 200,
+    "final_host": "gh-proxy.com",
+    "headers": {
+      "content-type": "text/html",
+      "content-length": "195",
+      "etag": "\"6ab20a7b-c3\"",
+      "accept-ranges": "bytes"
+    },
+    "body_hex": "3c68746d6c3e0a202020203c686561643e3c7469746c653e5369746520556e617661696c61626c653c2f7469746c653e3c2f686561643e0a202020203c626f64793e0a2020202020203c63656e7465723e0a20202020202020203c68313e5369746520556e617661696c61626c653c2f68313e0a20202020202020203c703e55",
+    "body_repr": "b'<html>\\n    <head><title>Site Unavailable</title></head>\\n    <body>\\n      <center>\\n        <h1>Site Unavailable</h1>\\n        <p>U'",
+    "seconds": 6.27
+  },
+  {
+    "name": "gh-proxy.com",
+    "range": "bytes=0-63",
+    "url": "https://gh-proxy.com/https://huggingface.co/mradermacher/LMT-60-1.7B-GGUF/resolve/f03d51b43463d8a457eee1cd765220de69e9bac8/LMT-60-1.7B.Q4_K_M.gguf",
+    "status": 206,
+    "final_host": "gh-proxy.com",
+    "headers": {
+      "content-type": "text/html",
+      "content-length": "64",
+      "etag": "\"6ab20c78-c3\"",
+      "content-range": "bytes 0-63/195"
+    },
+    "body_hex": "3c68746d6c3e0a202020203c686561643e3c7469746c653e5369746520556e617661696c61626c653c2f7469746c653e3c2f686561643e0a202020203c626f64",
+    "body_repr": "b'<html>\\n    <head><title>Site Unavailable</title></head>\\n    <bod'",
+    "seconds": 6.31
+  },
+  {
+    "name": "gh-proxy.com",
+    "range": null,
+    "url": "https://gh-proxy.com/https://huggingface.co/mradermacher/LMT-60-1.7B-GGUF/resolve/f03d51b43463d8a457eee1cd765220de69e9bac8/LMT-60-1.7B.Q4_K_M.gguf",
+    "status": 200,
+    "final_host": "gh-proxy.com",
+    "headers": {
+      "content-type": "text/html",
+      "content-length": "195",
+      "etag": "\"6ab20c78-c3\"",
+      "accept-ranges": "bytes"
+    },
+    "body_hex": "3c68746d6c3e0a202020203c686561643e3c7469746c653e5369746520556e617661696c61626c653c2f7469746c653e3c2f686561643e0a202020203c626f64793e0a2020202020203c63656e7465723e0a20202020202020203c68313e5369746520556e617661696c61626c653c2f68313e0a20202020202020203c703e55",
+    "body_repr": "b'<html>\\n    <head><title>Site Unavailable</title></head>\\n    <body>\\n      <center>\\n        <h1>Site Unavailable</h1>\\n        <p>U'",
+    "seconds": 6.32
+  }
+]

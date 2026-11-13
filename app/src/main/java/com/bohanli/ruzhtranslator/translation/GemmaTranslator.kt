@@ -25,9 +25,9 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
- * Compatibility facade for Vosk/TranslationQueue/metrics.
- * Engine choice is immutable per instance: Gemma4/LiteRT-LM OR LMT/llama.cpp.
- * A global lease prevents two translation weight sets from being resident together.
+ * Compatibility facade for the existing Vosk/TranslationQueue/metrics pipeline.
+ * Each instance owns exactly one engine: Gemma4, LMT or HY-MT2. No silent substitution.
+ * A global lease prevents simultaneous residency of translation weight sets.
  */
 class GemmaTranslator(
     val engineId: String = AppSettings.translationEngine,
@@ -40,11 +40,12 @@ class GemmaTranslator(
         private const val INSTRUCTION = "You are a professional simultaneous interpreter. Translate Russian into accurate Simplified Chinese. Preserve numbers, names, technical terms and negations. Output only the translation."
     }
     private val spec = ModelCatalog.forEngine(engineId)
+    private val usesGguf = engineId != AppSettings.ENGINE_GEMMA4
     private val dispatcher = Executors.newSingleThreadExecutor { task ->
         Thread(task, "translator-$engineId").apply { isDaemon = true }
     }.asCoroutineDispatcher()
     private val cleanupScope = CoroutineScope(SupervisorJob() + dispatcher)
-    // A single dispatcher alone does NOT serialize suspended Flow collection with close().
+    // A dispatcher alone does NOT serialize suspended Flow collection with close().
     private val operation = Mutex()
     private val closed = AtomicBoolean(false)
     private var ownsLease = false
@@ -54,12 +55,10 @@ class GemmaTranslator(
     private var actualBackend = AppSettings.BACKEND_CPU
     @Volatile private var ready = false
     @Volatile var onStreamToken: ((String) -> Unit)? = null
-
     data class TranslationResult(val text: String, val promptMs: Long, val genMs: Long,
                                  val promptTokens: Int, val genTokens: Int) {
         val totalMs: Long get() = promptMs + genMs
     }
-
     suspend fun initialize(modelDir: File) = withContext(dispatcher) {
         operation.withLock {
             check(!closed.get()) { "Translator closed" }
@@ -72,8 +71,8 @@ class GemmaTranslator(
             try {
                 check(!closed.get()) { "Translator closed" }
                 path = model.absolutePath
-                if (engineId == AppSettings.ENGINE_LMT) {
-                    val runtime = LmtNativeEngine()
+                if (usesGguf) {
+                    val runtime = LmtNativeEngine(engineId)
                     lmt = runtime
                     runtime.initialize(model)
                     actualBackend = AppSettings.BACKEND_CPU
@@ -96,7 +95,6 @@ class GemmaTranslator(
             }
         }
     }
-
     private fun loadGemma(modelPath: String, name: String) {
         val backend = if (name == AppSettings.BACKEND_GPU) Backend.GPU() else Backend.CPU()
         val instance = Engine(EngineConfig(modelPath = modelPath, backend = backend,
@@ -105,7 +103,6 @@ class GemmaTranslator(
         gemma = instance
         actualBackend = name
     }
-
     fun translate(text: String): String {
         if (closed.get() || !ready) return "[${spec.title} 翻译引擎未加载]"
         return runBlocking {
@@ -113,9 +110,9 @@ class GemmaTranslator(
                 operation.withLock {
                     if (closed.get() || !ready) return@withLock "[翻译引擎已关闭]"
                     try {
-                        if (engineId == AppSettings.ENGINE_LMT) {
+                        if (usesGguf) {
                             checkNotNull(lmt).translate(text) { chunk -> emit(chunk) }
-                                .ifEmpty { "[LMT 翻译结果为空]" }
+                                .ifEmpty { "[${spec.title} 翻译结果为空]" }
                         } else generateGemma(text, true)
                     } catch (cancelled: CancellationException) {
                         throw cancelled
@@ -137,7 +134,6 @@ class GemmaTranslator(
             }
         }
     }
-
     private fun emit(chunk: String) { if (!closed.get()) onStreamToken?.invoke(chunk) }
     private suspend fun generateGemma(input: String, streaming: Boolean): String {
         val config = ConversationConfig(systemInstruction = Contents.of(INSTRUCTION),
@@ -160,8 +156,6 @@ class GemmaTranslator(
         return TranslationResult(output, 0L, (System.nanoTime() - started) / 1_000_000, 0, 0)
     }
     fun isAvailable(): Boolean = ready && !closed.get()
-
-    /** UI-safe shutdown: cancel native CPU work, then close after any operation has exited. */
     fun destroy() {
         if (!closed.compareAndSet(false, true)) return
         ready = false

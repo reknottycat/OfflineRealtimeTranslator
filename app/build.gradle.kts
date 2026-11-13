@@ -11,8 +11,8 @@ android {
         applicationId = "com.bohanli.ruzhtranslator"
         minSdk = 29
         targetSdk = 36
-        versionCode = 34
-        versionName = "3.4-alpha-lmt"
+        versionCode = 36
+        versionName = "3.6-alpha-china-downloads"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += "arm64-v8a" }
         externalNativeBuild {
@@ -49,7 +49,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.vosk.android)
     implementation(libs.onnxruntime.android)
-    // Retain the already CI-tested Gemma runtime; LMT is a separate native library.
+    // Gemma remains LiteRT-LM; the GGUF bridge owns distinct LMT/HY-MT2 profiles.
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.16.1")
     val roomVersion = "2.7.1"
     implementation("androidx.room:room-runtime:$roomVersion")

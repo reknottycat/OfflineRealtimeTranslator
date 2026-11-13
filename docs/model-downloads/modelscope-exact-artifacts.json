@@ -1,0 +1,44 @@
+[
+  {
+    "model": "hy",
+    "url": "https://modelscope.cn/api/v1/models/Tencent-Hunyuan/Hy-MT2-1.8B-GGUF/repo/files?Revision=master&Recursive=true",
+    "files": [
+      {
+        "CommitMessage": "Upload folder using ModelScope SDK (batch 1/12)",
+        "CommittedDate": 1779674191,
+        "CommitterName": "systemd",
+        "InCheck": false,
+        "IsLFS": true,
+        "Mode": "33188",
+        "Name": "Hy-MT2-1.8B-Q4_K_M.gguf",
+        "Path": "Hy-MT2-1.8B-Q4_K_M.gguf",
+        "Revision": "ef1d40b8b315575d30d1eb6579996130b8fc0bb2",
+        "Sha256": "dc5f44fcf1fa496ee7ad725982c0c8c553a4de00259b53af84c4b89fb0c06699",
+        "Size": 1133080448,
+        "Type": "blob"
+      }
+    ],
+    "Code": 200
+  },
+  {
+    "model": "gemma",
+    "url": "https://modelscope.cn/api/v1/models/litert-community/gemma-4-E2B-it-litert-lm/repo/files?Revision=master&Recursive=true",
+    "files": [
+      {
+        "CommitMessage": "Update README.md (batch 1/1)",
+        "CommittedDate": 1778020170,
+        "CommitterName": "systemd",
+        "InCheck": false,
+        "IsLFS": true,
+        "Mode": "33188",
+        "Name": "gemma-4-E2B-it.litertlm",
+        "Path": "gemma-4-E2B-it.litertlm",
+        "Revision": "1bacc155f57965ae45832a9ccfe96cdfcb0e94e9",
+        "Sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+        "Size": 2588147712,
+        "Type": "blob"
+      }
+    ],
+    "Code": 200
+  }
+]

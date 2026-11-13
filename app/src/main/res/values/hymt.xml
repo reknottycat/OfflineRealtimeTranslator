@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="rb_hymt2" type="id" />
+    <string name="engine_hymt2">腾讯 HY-MT2-1.8B · Q4_K_M · CPU</string>
+</resources>

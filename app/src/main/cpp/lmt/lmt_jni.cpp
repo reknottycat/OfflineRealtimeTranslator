@@ -12,21 +12,21 @@ static jbyteArray bytes(JNIEnv* env, const std::string& value) {
     return result;
 }
 extern "C" JNIEXPORT jlong JNICALL
-Java_com_bohanli_ruzhtranslator_translation_LmtNativeEngine_nativeCreate(JNIEnv* env, jobject, jstring path) {
+Java_com_bohanli_ruzhtranslator_translation_LmtNativeEngine_nativeCreate(JNIEnv* env, jobject, jstring path, jint kind) {
     const char* chars = env->GetStringUTFChars(path, nullptr);
     if (!chars) return 0;
     std::string filename(chars);
     env->ReleaseStringUTFChars(path, chars);
-    try { return reinterpret_cast<jlong>(new lmt::Engine(filename)); }
+    try { return reinterpret_cast<jlong>(new lmt::Engine(filename, lmt::kind_from_id(kind))); }
     catch (const std::exception& error) { fail(env, error.what()); return 0; }
 }
 extern "C" JNIEXPORT jbyteArray JNICALL
 Java_com_bohanli_ruzhtranslator_translation_LmtNativeEngine_nativeTranslate(JNIEnv* env, jobject self, jlong handle, jbyteArray input) {
-    if (!handle) { fail(env, "LMT engine is closed"); return nullptr; }
+    if (!handle) { fail(env, "GGUF engine is closed"); return nullptr; }
     auto engine = reinterpret_cast<lmt::Engine*>(handle);
     try {
         const jsize size = env->GetArrayLength(input);
-        if (size > 32768) throw std::runtime_error("LMT input exceeds 32 KiB");
+        if (size > 32768) throw std::runtime_error("Translation input exceeds 32 KiB");
         std::string source(static_cast<size_t>(size), '\0');
         env->GetByteArrayRegion(input, 0, size, reinterpret_cast<jbyte*>(source.data()));
         if (env->ExceptionCheck()) return nullptr;
@@ -37,7 +37,7 @@ Java_com_bohanli_ruzhtranslator_translation_LmtNativeEngine_nativeTranslate(JNIE
         auto output = engine->translate(source, [&](const std::string& chunk) {
             auto value = bytes(env, chunk);
             if (value) { env->CallVoidMethod(self, method, value); env->DeleteLocalRef(value); }
-            if (env->ExceptionCheck()) throw std::runtime_error("LMT stream callback failed");
+            if (env->ExceptionCheck()) throw std::runtime_error("Translation stream callback failed");
         });
         return bytes(env, output);
     } catch (const std::exception& error) { fail(env, error.what()); return nullptr; }

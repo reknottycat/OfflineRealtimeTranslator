@@ -1,0 +1,258 @@
+[
+  {
+    "name": "lmt-search",
+    "url": "https://modelscope.cn/openapi/v1/models?search=LMT-60&page_size=50",
+    "status": 200,
+    "final_host": "modelscope.cn",
+    "headers": {
+      "content-type": "application/json; charset=utf-8"
+    },
+    "seconds": 4.88,
+    "data": {
+      "success": true,
+      "request_id": "3992ecce-d971-4a97-9201-a52e8753ab86",
+      "data": {
+        "models": [
+          {
+            "id": "yvanluo/LMT-60-0.6B",
+            "display_name": "LMT-60-0.6B",
+            "description": "",
+            "downloads": 152,
+            "likes": 1,
+            "license": "apache-2.0",
+            "tasks": [
+              "translation"
+            ],
+            "created_at": "2025-12-02T14:06:18Z",
+            "last_modified": "2026-05-07T03:42:01Z",
+            "file_size": 1519191073,
+            "params": 751632384,
+            "tags": [
+              "license:apache-2.0",
+              "model_type:qwen3",
+              "library:transformer",
+              "library:safetensors",
+              "library:pytorch",
+              "task:translation"
+            ],
+            "private": false,
+            "gated": false
+          },
+          {
+            "id": "yvanluo/LMT-60-8B",
+            "display_name": "LMT-60-8B",
+            "description": "",
+            "downloads": 105,
+            "likes": 0,
+            "license": "apache-2.0",
+            "tasks": [
+              "translation"
+            ],
+            "created_at": "2025-12-02T14:16:12Z",
+            "last_modified": "2026-05-07T03:46:16Z",
+            "file_size": 16397440881,
+            "params": 8190735360,
+            "tags": [
+              "license:apache-2.0",
+              "model_type:qwen3",
+              "library:transformer",
+              "library:safetensors",
+              "library:pytorch",
+              "task:translation"
+            ],
+            "private": false,
+            "gated": false
+          },
+          {
+            "id": "yvanluo/LMT-60-0.6B-Base",
+            "display_name": "LMT-60-0.6B-Base",
+            "description": "",
+            "downloads": 77,
+            "likes": 0,
+            "license": "apache-2.0",
+            "tasks": [
+              "translation"
+            ],
+            "created_at": "2025-12-02T14:15:44Z",
+            "last_modified": "2026-05-07T03:51:19Z",
+            "file_size": 1519190626,
+            "params": 751632384,
+            "tags": [
+              "license:apache-2.0",
+              "model_type:qwen3",
+              "library:transformer",
+              "library:safetensors",
+              "library:pytorch",
+              "task:translation"
+            ],
+            "private": false,
+            "gated": false
+          },
+          {
+            "id": "yvanluo/LMT-60-1.7B",
+            "display_name": "LMT-60-1.7B",
+            "description": "",
+            "downloads": 44,
+            "likes": 0,
+            "license": "apache-2.0",
+            "tasks": [
+              "translation"
+            ],
+            "created_at": "2025-12-02T14:14:48Z",
+            "last_modified": "2026-05-07T03:43:13Z",
+            "file_size": 4079406385,
+            "params": 2031739904,
+            "tags": [
+              "license:apache-2.0",
+              "model_type:qwen3",
+              "library:transformer",
+              "library:safetensors",
+              "library:pytorch",
+              "task:translation"
+            ],
+            "private": false,
+            "gated": false
+          },
+          {
+            "id": "yvanluo/LMT-60-4B",
+            "display_name": "LMT-60-4B",
+            "description": "",
+            "downloads": 64,
+            "likes": 0,
+            "license": "apache-2.0",
+            "tasks": [
+              "translation"
+            ],
+            "created_at": "2025-12-02T14:11:47Z",
+            "last_modified": "2026-05-07T03:44:35Z",
+            "file_size": 8838818420,
+            "params": 4411424256,
+            "tags": [
+              "license:apache-2.0",
+              "model_type:qwen3",
+              "library:transformer",
+              "library:safetensors",
+              "library:pytorch",
+              "task:translation"
+            ],
+            "private": false,
+            "gated": false
+          },
+          {
+            "id": "yvanluo/LMT-60-4B-Base",
+            "display_name": "LMT-60-4B-Base",
+            "description": "",
+            "downloads": 30,
+            "likes": 0,
+            "license": "apache-2.0",
+            "tasks": [
+              "translation"
+            ],
+            "created_at": "2025-12-02T14:03:39Z",
+            "last_modified": "2026-05-07T03:53:27Z",
+            "file_size": 8838817761,
+            "params": 4411424256,
+            "tags": [
+              "license:apache-2.0",
+              "model_type:qwen3",
+              "library:transformer",
+              "library:safetensors",
+              "library:pytorch",
+              "task:translation"
+            ],
+            "private": false,
+            "gated": false
+          },
+          {
+            "id": "yvanluo/LMT-60-1.7B-Base",
+            "display_name": "LMT-60-1.7B-Base",
+            "description": "",
+            "downloads": 12,
+            "likes": 0,
+            "license": "apache-2.0",
+            "tasks": [
+              "translation"
+            ],
+            "created_at": "2025-12-02T14:04:48Z",
+            "last_modified": "2026-05-07T03:52:30Z",
+            "file_size": 4079405938,
+            "params": 2031739904,
+            "tags": [
+              "license:apache-2.0",
+              "model_type:qwen3",
+              "library:transformer",
+              "library:safetensors",
+              "library:pytorch",
+              "task:translation"
+            ],
+            "private": false,
+            "gated": false
+          },
+          {
+            "id": "yvanluo/LMT-60-8B-Base",
+            "display_name": "LMT-60-8B-Base",
+            "description": "",
+            "downloads": 39,
+            "likes": 0,
+            "license": "apache-2.0",
+            "tasks": [
+              "translation"
+            ],
+            "created_at": "2025-12-02T14:15:19Z",
+            "last_modified": "2026-05-07T03:54:12Z",
+            "file_size": 16397440222,
+            "params": 8190735360,
+            "tags": [
+              "license:apache-2.0",
+              "model_type:qwen3",
+              "library:transformer",
+              "library:safetensors",
+              "library:pytorch",
+              "task:translation"
+            ],
+            "private": false,
+            "gated": false
+          }
+        ],
+        "total_count": 8,
+        "page_number": 1,
+        "page_size": 50
+      }
+    }
+  },
+  {
+    "name": "niutrans-search",
+    "url": "https://modelscope.cn/openapi/v1/models?owner=NiuTrans&page_size=50",
+    "status": 200,
+    "final_host": "modelscope.cn",
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-length": "136"
+    },
+    "seconds": 4.35,
+    "data": {
+      "success": true,
+      "request_id": "ae7d0b0e-0f71-42a2-8087-d7f6730fcd31",
+      "data": {
+        "models": [],
+        "total_count": 0,
+        "page_number": 1,
+        "page_size": 50
+      }
+    }
+  },
+  {
+    "name": "hy-ms-ai",
+    "url": "https://www.modelscope.ai/models/Tencent-Hunyuan/Hy-MT2-1.8B-GGUF/resolve/ef1d40b8b315575d30d1eb6579996130b8fc0bb2/Hy-MT2-1.8B-Q4_K_M.gguf",
+    "error": "HTTP Error 404: Not Found",
+    "seconds": 6.81,
+    "error_body": "{\"Code\":10990101007,\"Message\":\"get model file failed, file content is empty\",\"RequestId\":\"c9c58cf9-8b06-4ba8-86df-f8c7fb85af6b\",\"Success\":false}"
+  },
+  {
+    "name": "gemma-ms-ai",
+    "url": "https://www.modelscope.ai/models/litert-community/gemma-4-E2B-it-litert-lm/resolve/1bacc155f57965ae45832a9ccfe96cdfcb0e94e9/gemma-4-E2B-it.litertlm",
+    "error": "HTTP Error 404: Not Found",
+    "seconds": 6.61,
+    "error_body": "{\"Code\":10990101007,\"Message\":\"get model file failed, file content is empty\",\"RequestId\":\"bf244585-37bf-40a3-8528-2ddec1020247\",\"Success\":false}"
+  }
+]

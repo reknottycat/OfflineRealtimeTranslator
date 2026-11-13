@@ -19,4 +19,23 @@ object DownloadProtocol {
         require(responseLength < 0 || responseLength == b - a + 1) { "Range length mismatch" }
         return n
     }
+
+    /** Every parallel response must be exactly the requested interval of this artifact. */
+    fun requireRange(header: String?, start: Long, end: Long, total: Long, responseLength: Long) {
+        val actual = rangeTotal(header, start, responseLength)
+        require(actual == total) { "下载源返回了其他文件的总长度" }
+        val actualEnd = header!!.substringAfter('-').substringBefore('/').toLong()
+        require(actualEnd == end) { "下载源返回了错误的分块范围" }
+        require(responseLength < 0 || responseLength == end - start + 1) { "下载源返回了错误的分块长度" }
+    }
+
+    fun requireBinary(contentType: String?, encoding: String?) {
+        val type = contentType?.substringBefore(';')?.trim()?.lowercase().orEmpty()
+        require(!type.startsWith("text/") && type != "application/json" && type != "application/problem+json") {
+            "下载源返回了网页或错误文本，不是模型文件"
+        }
+        require(encoding.isNullOrBlank() || encoding.equals("identity", ignoreCase = true)) {
+            "下载源对模型进行了不兼容的内容压缩"
+        }
+    }
 }
