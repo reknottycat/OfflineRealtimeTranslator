@@ -18,6 +18,17 @@ ModelScope 的 HY 仓库是 **`Tencent-Hunyuan/Hy-MT2-1.8B-GGUF`**，不同于 H
 
 ## 备用来源及实际限制
 
+### 设置界面的 ASR 下载来源
+
+以下是代码中的候选顺序，不代表本次对这些 ASR 工件做过网络测速或完整下载：
+
+- Nemotron QNN 压缩包依次尝试 `gh-proxy.org`、`ghproxy.imciel.com`，然后尝试 GitHub release 原站。
+- Nemotron 和 Qwen 多语 CPU 文件默认使用国内入口优先、Hugging Face 原站兜底；Qwen 先尝试 ModelScope，随后是 HF Mirror 和 Hugging Face。设置界面的多语 CPU 下载目前使用这一默认顺序。
+- Qwen NPU 模型依次使用 ModelScope 的两个入口、HF Mirror 和 Hugging Face；词表使用 Qwen 多语模型的默认来源。
+- GigaAM 的自动来源为 HF Mirror、Hugging Face；Vosk Small 的自动来源还包括 Hugging Face、alphacephei 和 GitHub。显式来源选择可以改变其优先顺序。
+
+各来源仍需通过下载器的长度、Range 和固定 SHA-256 校验；来源列表不保证各入口在任意网络下可达。
+
 - **ModelScope resolve 与 API 是同平台入口。** resolve 通常重定向到 `cdn-lfs-cn-1.modelscope.cn`；本次 Gemma 的两个入口都落到该 CDN。HY 的 API 响应最终域名仍为 `modelscope.cn`，不能据此视为独立存储。它们可能共享平台和 CDN 故障，不是两份独立可用性保证。
 - **HF Mirror 成功响应后仍可能走国外 CDN。** 本次三模型的最终下载域名均为 `us.aws.cdn.hf.co`。必须检查最终文件响应，不能只探测 `hf-mirror.com` 首页或 DNS。
 - **LMT 未找到可直接替换的 ModelScope GGUF。** 官方 OpenAPI 搜索 `LMT-60` 返回 8 个 `yvanluo` 仓库；实查 `yvanluo/LMT-60-1.7B` 只有原始 `model.safetensors` 等文件，没有 GGUF。不能用 safetensors 替代当前 llama.cpp 工件，也不能将未核实的同名 URL 作为成功来源。

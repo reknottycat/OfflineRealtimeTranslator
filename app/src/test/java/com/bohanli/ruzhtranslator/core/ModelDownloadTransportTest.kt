@@ -1,5 +1,6 @@
 package com.bohanli.ruzhtranslator.core
 
+import com.bohanli.ruzhtranslator.asr.NemotronQnnModelStore
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import java.io.File
@@ -44,6 +45,52 @@ class ModelDownloadTransportTest {
         spec(bytes), partial, chunkBytes = 8, workers = workers, attemptsPerChunk = attempts,
         connectTimeoutMs = 1_000, readTimeoutMs = readTimeoutMs, handshakeTimeoutMs = 2_000,
         openConnection = server::open)
+
+    @Test fun nemotronSourcesKeepProxiesFirstAndDeduplicateTheOfficialUrl() {
+        val official = "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models-qnn-binary-3/model.tar.bz2"
+        assertEquals(listOf("https://gh-proxy.org/$official", "https://ghproxy.imciel.com/$official", official),
+            NemotronQnnModelStore.downloadSources("k2-fsa/sherpa-onnx", "model.tar.bz2"))
+        assertEquals(listOf("https://mirror.test/$official", official),
+            NemotronQnnModelStore.downloadSources("k2-fsa/sherpa-onnx", "model.tar.bz2",
+                listOf("https://mirror.test/", "https://mirror.test/", "")))
+    }
+
+    @Test fun nemotronFallsBackToOfficialAndSafelyResumesVerifiedChunks() = runBlocking {
+        val interrupted = AtomicBoolean(true)
+        TestServer { exchange ->
+            val range = exchange.requestHeaders.getFirst("Range")
+            when {
+                exchange.requestURI.path == "/proxy1" && interrupted.get() && range == "bytes=0-7" -> binary(exchange, data)
+                exchange.requestURI.path != "/official" -> send(exchange, 404, byteArrayOf())
+                interrupted.get() -> send(exchange, 503, byteArrayOf())
+                else -> binary(exchange, data)
+            }
+        }.use { server ->
+            val file = partial()
+            val sources = NemotronQnnModelStore.downloadSources("k2-fsa/sherpa-onnx", "model.tar.bz2")
+            val download = ModelDownloadTransport(spec(), file, chunkBytes = 8, workers = 1, attemptsPerChunk = 3,
+                connectTimeoutMs = 1_000, readTimeoutMs = 1_000, handshakeTimeoutMs = 2_000,
+                openConnection = { incoming ->
+                    server.openPath(when (incoming.host) {
+                        "gh-proxy.org" -> "/proxy1"
+                        "ghproxy.imciel.com" -> "/proxy2"
+                        "github.com" -> "/official"
+                        else -> error("Unexpected source ${incoming.host}")
+                    })
+                })
+            expectFailure { download.download(sources) {} }
+            assertEquals(listOf("/proxy1", "/proxy1", "/proxy2", "/official"), server.requests.map { it.path })
+            assertEquals(2, journal(file).readLines().size)
+            interrupted.set(false)
+            val firstResumeRequest = server.requests.size
+            download.download(sources) {}
+            val resumed = server.requests.drop(firstResumeRequest)
+            assertEquals(listOf("/proxy1", "/proxy2", "/official"), resumed.take(3).map { it.path })
+            assertEquals("bytes=8-15", resumed[2].range)
+            assertFalse(resumed.any { it.range == "bytes=0-7" })
+            assertArrayEquals(data, file.readBytes())
+        }
+    }
 
     @Test fun exactRangesAreSavedAndTheCompleteFileIsVerified() = runBlocking {
         TestServer { binary(it, data) }.use { server ->
@@ -407,7 +454,8 @@ class ModelDownloadTransportTest {
             }
             start()
         }
-        fun open(url: URL): HttpURLConnection = URL("http://127.0.0.1:${server.address.port}${url.path}").openConnection() as HttpURLConnection
+        fun open(url: URL): HttpURLConnection = openPath(url.path)
+        fun openPath(path: String): HttpURLConnection = URL("http://127.0.0.1:${server.address.port}$path").openConnection() as HttpURLConnection
         override fun close() { server.stop(0); executor.shutdownNow() }
     }
 

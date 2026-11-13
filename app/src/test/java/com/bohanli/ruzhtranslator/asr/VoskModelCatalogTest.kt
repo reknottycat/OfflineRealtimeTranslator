@@ -22,7 +22,10 @@ class VoskModelCatalogTest {
     @Test fun smallAutoPrefersDomesticMirrorWithPinnedRevision() {
         val urls = VoskModelCatalog.urls(VoskModelCatalog.SMALL, VoskModelCatalog.SOURCE_AUTO)
         assertTrue(urls.first().startsWith("https://hf-mirror.com/rhasspy/vosk-models/resolve/"))
+        assertEquals(urls.first().replace("https://hf-mirror.com/", "https://huggingface.co/"), urls[1])
         assertTrue(urls.contains(VoskModelCatalog.SMALL.officialUrl))
+        assertEquals("https://github.com/BartekReterski/VoskModels/releases/download/v1/vosk-model-small-ru-0.22.zip", urls.last())
+        assertEquals(urls.size, urls.distinct().size)
         assertTrue(urls.all { it.startsWith("https://") })
     }
     @Test fun largeDoesNotInventDomesticMirror() {
