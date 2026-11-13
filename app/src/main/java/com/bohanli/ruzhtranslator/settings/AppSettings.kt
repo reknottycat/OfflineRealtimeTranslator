@@ -2,6 +2,7 @@ package com.bohanli.ruzhtranslator.settings
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.core.content.edit
 
 /** Persisted preferences; existing Gemma/LMT selections and model paths are preserved. */
 object AppSettings {
@@ -38,15 +39,16 @@ object AppSettings {
                 if (!p.contains(KEY_ASR_MODEL)) {
                     val legacy = context.applicationContext.getSharedPreferences("MainActivity", Context.MODE_PRIVATE)
                         .getString(KEY_ASR_MODEL, null)
-                    if (legacy != null) p.edit().putString(KEY_ASR_MODEL, legacy).apply()
+                    if (legacy != null) p.edit { putString(KEY_ASR_MODEL, legacy) }
                 }
                 // v3.5 defaulted to HF without any user action. Migrate that default once;
                 // afterwards an explicit preferred-source choice remains persistent.
                 if (p.getInt(KEY_SOURCE_POLICY_VERSION, 0) < 1) {
                     val previous = p.getString(KEY_MODEL_SOURCE, null)
-                    val migration = p.edit().putInt(KEY_SOURCE_POLICY_VERSION, 1)
-                    if (previous == null || previous == SOURCE_HF) migration.putString(KEY_MODEL_SOURCE, SOURCE_AUTO)
-                    migration.apply()
+                    p.edit {
+                        putInt(KEY_SOURCE_POLICY_VERSION, 1)
+                        if (previous == null || previous == SOURCE_HF) putString(KEY_MODEL_SOURCE, SOURCE_AUTO)
+                    }
                 }
                 prefs = p
             }
@@ -54,27 +56,27 @@ object AppSettings {
     }
     var driftRetryEnabled: Boolean
         get() = prefs?.getBoolean(KEY_DRIFT_RETRY, true) ?: true
-        set(value) { prefs?.edit()?.putBoolean(KEY_DRIFT_RETRY, value)?.apply() }
+        set(value) { prefs?.edit { putBoolean(KEY_DRIFT_RETRY, value) } }
     var asrModel: String
         get() = prefs?.getString(KEY_ASR_MODEL, ASR_MODEL_SMALL) ?: ASR_MODEL_SMALL
-        set(value) { prefs?.edit()?.putString(KEY_ASR_MODEL, value)?.apply() }
+        set(value) { prefs?.edit { putString(KEY_ASR_MODEL, value) } }
     var asrSource: String
         get() = prefs?.getString(KEY_ASR_SOURCE, "auto") ?: "auto"
-        set(value) { prefs?.edit()?.putString(KEY_ASR_SOURCE, value)?.apply() }
+        set(value) { prefs?.edit { putString(KEY_ASR_SOURCE, value) } }
     var asrLanguage: String
         get() = prefs?.getString(KEY_ASR_LANGUAGE, "auto") ?: "auto"
-        set(value) { prefs?.edit()?.putString(KEY_ASR_LANGUAGE, value)?.apply() }
+        set(value) { prefs?.edit { putString(KEY_ASR_LANGUAGE, value) } }
     var translationEngine: String
         get() = prefs?.getString(KEY_TRANSLATION_ENGINE, ENGINE_HYMT2) ?: ENGINE_HYMT2
-        set(value) { prefs?.edit()?.putString(KEY_TRANSLATION_ENGINE, value)?.apply() }
+        set(value) { prefs?.edit { putString(KEY_TRANSLATION_ENGINE, value) } }
     var inferenceBackend: String
         get() = prefs?.getString(KEY_INFERENCE_BACKEND, BACKEND_AUTO) ?: BACKEND_AUTO
-        set(value) { prefs?.edit()?.putString(KEY_INFERENCE_BACKEND, value)?.apply() }
+        set(value) { prefs?.edit { putString(KEY_INFERENCE_BACKEND, value) } }
     var modelSource: String
         get() = prefs?.getString(KEY_MODEL_SOURCE, SOURCE_AUTO) ?: SOURCE_AUTO
-        set(value) { prefs?.edit()?.putString(KEY_MODEL_SOURCE, value)?.apply() }
+        set(value) { prefs?.edit { putString(KEY_MODEL_SOURCE, value) } }
     var modelGeneration: Int
         get() = prefs?.getInt(KEY_MODEL_GENERATION, 0) ?: 0
-        set(value) { prefs?.edit()?.putInt(KEY_MODEL_GENERATION, value)?.apply() }
+        set(value) { prefs?.edit { putInt(KEY_MODEL_GENERATION, value) } }
     fun notifyModelsChanged() { modelGeneration += 1 }
 }

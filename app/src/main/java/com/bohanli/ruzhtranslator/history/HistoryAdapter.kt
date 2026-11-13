@@ -25,7 +25,7 @@ class HistoryAdapter(
         set(value) {
             field = value
             if (!value) selectedIds.clear()
-            notifyDataSetChanged()
+            notifyItemRangeChanged(0, itemCount)
         }
 
     val selectedIds = mutableSetOf<Int>()
@@ -47,12 +47,12 @@ class HistoryAdapter(
     fun selectAll() {
         selectedIds.clear()
         selectedIds.addAll(records.map { it.id })
-        notifyDataSetChanged()
+        notifyItemRangeChanged(0, itemCount)
     }
 
     fun deselectAll() {
         selectedIds.clear()
-        notifyDataSetChanged()
+        notifyItemRangeChanged(0, itemCount)
     }
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -76,6 +76,9 @@ class HistoryAdapter(
             btnFavorite.setImageResource(
                 if (record.isFavorite) R.drawable.ic_star_filled
                 else R.drawable.ic_star_outline
+            )
+            btnFavorite.contentDescription = itemView.context.getString(
+                if (record.isFavorite) R.string.favorite_remove else R.string.favorite_add
             )
             btnFavorite.setOnClickListener { onFavoriteToggle(record) }
 

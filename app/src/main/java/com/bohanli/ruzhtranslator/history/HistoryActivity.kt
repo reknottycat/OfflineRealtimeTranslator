@@ -206,7 +206,7 @@ class HistoryActivity : AppCompatActivity() {
     }
 
     private fun updateSelectedCount() {
-        binding.tvSelectedCount.text = "${adapter.selectedIds.size}/${adapter.records.size}"
+        binding.tvSelectedCount.text = getString(R.string.selected_count, adapter.selectedIds.size.toString(), adapter.records.size.toString())
     }
 
     // ---- Data loading ----
@@ -239,8 +239,8 @@ class HistoryActivity : AppCompatActivity() {
             // Update tab counts
             val historyCount = withContext(Dispatchers.IO) { dao.getHistoryCount() }
             val favCount = withContext(Dispatchers.IO) { dao.getFavoritesCount() }
-            binding.tabHistory.text = "${getString(R.string.tab_history)} ($historyCount)"
-            binding.tabFavorites.text = "${getString(R.string.tab_favorites)} ($favCount)"
+            binding.tabHistory.text = getString(R.string.tab_with_count, getString(R.string.tab_history), historyCount.toString())
+            binding.tabFavorites.text = getString(R.string.tab_with_count, getString(R.string.tab_favorites), favCount.toString())
         }
     }
 
@@ -304,8 +304,7 @@ class HistoryActivity : AppCompatActivity() {
         // Scrollable content
         val scrollView = ScrollView(this)
         val tvContent = TextView(this).apply {
-            text = "${dateFormat.format(Date(record.createTime))}\n\n" +
-                "[俄语]\n${record.ruText}\n\n[中文]\n${record.zhText}"
+            text = getString(R.string.history_detail, dateFormat.format(Date(record.createTime)), record.ruText, record.zhText)
             setTextColor(0xFFCCCCCC.toInt())
             textSize = 14f
         }

@@ -18,8 +18,8 @@ class GigaAmCatalogTest {
 
     @Test fun domesticMirrorIsFirstAndOfficialSourceIsFallback() {
         val urls = GigaAmCatalog.urls(VoskModelCatalog.SOURCE_AUTO)
-        assertTrue(urls[0].startsWith("https://hf-mirror.com/"))
-        assertTrue(urls.any { it.startsWith("https://huggingface.co/") })
+        assertEquals(listOf(GigaAmCatalog.SPEC.url("hf-mirror.com"),
+            GigaAmCatalog.SPEC.url("huggingface.co")), urls)
         assertTrue(urls.all { it.endsWith("/model.int8.onnx") })
     }
 

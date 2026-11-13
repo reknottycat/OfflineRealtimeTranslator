@@ -42,10 +42,7 @@ class NemotronQnnModelStore private constructor(
             check(!staging.exists() || staging.deleteRecursively()) { "无法清理上次解压的临时目录" }
             check(staging.mkdirs()) { "无法创建 Nemotron 模型目录" }
             try {
-                val official = "https://github.com/${spec.repository}/releases/download/$RELEASE_TAG/${spec.fileName}"
-                // These mirrors returned binary ranges for the pinned release assets.
-                val sources = PROXY_PREFIXES.map { it + official }
-                ModelDownloadTransport(spec, archive).download(sources) {
+                ModelDownloadTransport(spec, archive).download(downloadSources(spec.repository, spec.fileName)) {
                     progress(ModelDownloader.Progress(it.received, it.expected, it.stage))
                 }
                 extractVerifiedArchive(progress)
@@ -146,6 +143,16 @@ class NemotronQnnModelStore private constructor(
         private val REQUIRED_FILES = setOf("encoder.bin", "decoder.bin", "joiner.bin", "tokens.txt")
         private val PROXY_PREFIXES = listOf("https://gh-proxy.org/", "https://ghproxy.imciel.com/")
         private val installLock = Mutex()
+
+        internal fun downloadSources(
+            repository: String,
+            fileName: String,
+            proxyPrefixes: List<String> = PROXY_PREFIXES
+        ): List<String> {
+            val official = "https://github.com/$repository/releases/download/$RELEASE_TAG/$fileName"
+            // These mirrors returned binary ranges for the pinned release assets.
+            return (proxyPrefixes.map { it + official } + official).distinct()
+        }
 
         private val specs = mapOf(
             "SM8750" to spec("SM8750", 442_651_414L, "a5af6d03ebba0425074e38d0ebd819fff88ff404fd7340433de30bb515dbbd51"),

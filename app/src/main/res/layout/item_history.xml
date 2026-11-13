@@ -26,6 +26,7 @@
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/favorite_add"
             android:src="@drawable/ic_star_outline"
             app:tint="#FFC6CAC8"
             android:scaleType="centerInside"
